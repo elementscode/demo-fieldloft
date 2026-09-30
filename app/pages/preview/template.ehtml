@@ -1,0 +1,35 @@
+import "./style.css";
+import { LiveView } from "@elements/app";
+import { Field, Form, byPosition } from "#app/shared/services/forms";
+import { AppShell } from "#app/shared/templates/app-shell";
+import { FormNav } from "#app/shared/templates/form-nav";
+import { FormView } from "#app/shared/templates/form-view";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+
+<html lang="en" class="page-preview" (
+  forms: LiveView<Form>,
+  fields: LiveView<Field>,
+  responseCount: number,
+)>
+  <head>
+    <title>Preview · {forms.at(0)?.title ?? "Form"} · fieldloft</title>
+    <meta name="description" content="Preview your form">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <AppShell>
+      <div e:for={form of forms} class="page-shell is-wide stack is-lg">
+        <FormNav {form} active="preview" {responseCount}/>
+
+        <div class="preview-note row">
+          <p class="hint">This is exactly what respondents see. Try it out: answers here are checked but never saved.</p>
+          <a class="button is-sm" href={`/forms/${form.id}`}>Back to editing</a>
+        </div>
+
+        <div class="preview-stage" style={{ "--stage-color": form.themeColor }}>
+          <FormView {form} fields={fields.sort(byPosition)} preview={true}/>
+        </div>
+      </div>
+    </AppShell>
+  </body>
+</html>

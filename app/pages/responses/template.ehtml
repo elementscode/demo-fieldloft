@@ -1,0 +1,291 @@
+import "./style.css";
+import { LiveView } from "@elements/app";
+import {
+  Answer,
+  Field,
+  FileAnswer,
+  Submission,
+  RATING_MAX,
+  answerOf,
+  formatAnswer,
+} from "#app/shared/services/forms";
+import { AppShell } from "#app/shared/templates/app-shell";
+import { FormNav, FormNavInfo } from "#app/shared/templates/form-nav";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+
+interface Bar {
+  id: string;
+  label: string;
+  count: number;
+  share: number;
+  top: boolean;
+}
+
+interface Ui {
+  view: "summary" | "table";
+  loadedAt: number;
+}
+
+function newestFirst(rows: LiveView<Submission>): Submission[] {
+  return rows.sort((a, b) => +b.createdAt - +a.createdAt);
+}
+
+function answered(rows: LiveView<Submission>, field: Field): Answer[] {
+  let out: Answer[] = [];
+
+  for (let r of rows) {
+    let v = answerOf(r, field);
+
+    if (v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && v.length === 0)) {
+      out.push(v);
+    }
+  }
+
+  return out;
+}
+
+/** Counts per option; for multiple choice the share is of people who answered, so bars can sum past 100%. */
+function choiceBars(rows: LiveView<Submission>, field: Field): Bar[] {
+  let answers = answered(rows, field);
+  let counts = new Map<string, number>(field.options.map((o) => [o, 0]));
+
+  for (let a of answers) {
+    for (let pick of Array.isArray(a) ? a : [String(a)]) {
+      counts.set(pick, (counts.get(pick) ?? 0) + 1);
+    }
+  }
+
+  let max = Math.max(0, ...counts.values());
+
+  return [...counts.entries()].map(([label, count]) => ({
+    id: label,
+    label,
+    count,
+    share: answers.length ? count / answers.length : 0,
+    top: count > 0 && count === max,
+  }));
+}
+
+function ratingBars(rows: LiveView<Submission>, field: Field): Bar[] {
+  let answers = answered(rows, field).map(Number);
+  let bars: Bar[] = [];
+  let max = 0;
+
+  for (let n = RATING_MAX; n >= 1; n--) {
+    let count = answers.filter((a) => a === n).length;
+    max = Math.max(max, count);
+    bars.push({ id: String(n), label: `${n} ${n === 1 ? "star" : "stars"}`, count, share: answers.length ? count / answers.length : 0, top: false });
+  }
+
+  return bars.map((b) => ({ ...b, top: b.count > 0 && b.count === max }));
+}
+
+function average(values: number[]): number {
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+}
+
+function ratingAverage(rows: LiveView<Submission>, field: Field): number {
+  return average(answered(rows, field).map(Number));
+}
+
+function numberStats(rows: LiveView<Submission>, field: Field): { avg: string; min: string; max: string } {
+  let values = answered(rows, field).map(Number);
+
+  if (values.length === 0) {
+    return { avg: "–", min: "–", max: "–" };
+  }
+
+  let fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 1 });
+
+  return { avg: fmt(average(values)), min: fmt(Math.min(...values)), max: fmt(Math.max(...values)) };
+}
+
+function recentText(rows: LiveView<Submission>, field: Field): { id: string; text: string }[] {
+  return newestFirst(rows)
+    .filter((r) => answerOf(r, field) !== undefined && answerOf(r, field) !== "")
+    .slice(0, 4)
+    .map((r) => ({ id: r.id, text: formatAnswer(field, answerOf(r, field)) }));
+}
+
+function lastWeek(rows: LiveView<Submission>): number {
+  let cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+  return rows.filter((r) => +r.createdAt >= cutoff).length;
+}
+
+function ago(rows: LiveView<Submission>): string {
+  let latest = newestFirst(rows)[0];
+
+  if (!latest) {
+    return "None yet";
+  }
+
+  let minutes = Math.round((Date.now() - +latest.createdAt) / 60000);
+
+  if (minutes < 1) {
+    return "Just now";
+  }
+
+  if (minutes < 60) {
+    return `${minutes} min ago`;
+  }
+
+  let hours = Math.round(minutes / 60);
+
+  if (hours < 24) {
+    return `${hours} h ago`;
+  }
+
+  let days = Math.round(hours / 24);
+
+  return days === 1 ? "1 day ago" : `${days} days ago`;
+}
+
+function pct(share: number): string {
+  return `${Math.round(share * 100)}%`;
+}
+
+function stamp(date: Date): string {
+  return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function fileOf(value: Answer | undefined): FileAnswer | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : undefined;
+}
+
+function onDelete(rows: LiveView<Submission>, row: Submission) {
+  if (confirm("Delete this response? This cannot be undone.")) {
+    rows.delete(row);
+  }
+}
+
+<BarList (bars: Bar[], unit: string)>
+  <ul class="bars">
+    <li e:for={bar of bars} class={["bar-row", bar.top && "is-top"]}>
+      <span class="bar-name" title={bar.label}>{bar.label}</span>
+      <div class="bar-track" aria-hidden="true">
+        <div class="bar-fill" style={{ width: `${bar.share * 100}%` }}></div>
+      </div>
+      <span class="bar-value"><strong>{bar.count}</strong> · {pct(bar.share)}</span>
+      <span class="bar-tip" role="tooltip" style={{ "--tip-x": `calc(34% + ${Math.max(bar.share * 50, 6)}%)` }}>
+        {bar.label}: {bar.count} {bar.count === 1 ? unit : `${unit}s`} ({pct(bar.share)})
+      </span>
+    </li>
+  </ul>
+</BarList>
+
+<QuestionSummary (field: Field, rows: LiveView<Submission>)>
+  <article class={["q-card stack is-md", (field.kind === "long" || field.kind === "multiple") && "is-wide"]}>
+    <div class="stack is-xs">
+      <h3>{field.label}</h3>
+      <span class="q-meta">{answered(rows, field).length} of {rows.length} answered{field.kind === "multiple" ? " · pick any, so shares can add up past 100%" : ""}</span>
+    </div>
+
+    <BarList e:if={field.kind === "single" || field.kind === "multiple"} bars={choiceBars(rows, field)} unit="response"/>
+
+    <div e:elseif={field.kind === "rating"} class="stack is-md">
+      <div class="rating-head row">
+        <span class="rating-avg">{ratingAverage(rows, field).toFixed(1)}</span>
+        <span class="rating-stars" aria-label={`Average ${ratingAverage(rows, field).toFixed(1)} of ${RATING_MAX}`}>
+          <svg e:for={n of [1, 2, 3, 4, 5]} class={Math.round(ratingAverage(rows, field)) >= n ? "is-on" : ""} width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>
+          </svg>
+        </span>
+        <span class="q-meta">average of {RATING_MAX}</span>
+      </div>
+      <BarList bars={ratingBars(rows, field)} unit="rating"/>
+    </div>
+
+    <div e:elseif={field.kind === "number"} class="stat-row">
+      <div class="stack is-xs"><span class="stat-label">Average</span><span class="stat-value">{numberStats(rows, field).avg}</span></div>
+      <div class="stack is-xs"><span class="stat-label">Lowest</span><span class="stat-value">{numberStats(rows, field).min}</span></div>
+      <div class="stack is-xs"><span class="stat-label">Highest</span><span class="stat-value">{numberStats(rows, field).max}</span></div>
+    </div>
+
+    <div e:else class="stack is-xs">
+      <span class="q-meta">Latest answers</span>
+      <ul class="recent">
+        <li e:for={item of recentText(rows, field)}>{item.text}</li>
+      </ul>
+      <p e:if={recentText(rows, field).length === 0} class="hint">No answers yet.</p>
+    </div>
+  </article>
+</QuestionSummary>
+
+<html lang="en" class="page-responses" (
+  form: FormNavInfo,
+  fields: Field[],
+  responses: LiveView<Submission>,
+  private ui: Ui = { view: "summary" as Ui["view"], loadedAt: Date.now() },
+)>
+  <head>
+    <title>Responses · {form.title} · fieldloft</title>
+    <meta name="description" content="Responses">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <AppShell>
+      <div class="page-shell is-wide stack is-lg responses-theme" style={{ "--form-color": form.themeColor }}>
+        <FormNav {form} active="responses" responseCount={responses.length}/>
+
+        <div class="responses-bar row">
+          <div class="view-switch" role="tablist" aria-label="View">
+            <button role="tab" aria-selected={ui.view === "summary" ? "true" : "false"} class={[ui.view === "summary" && "is-active"]} onclick={() => ui.view = "summary"}>Summary</button>
+            <button role="tab" aria-selected={ui.view === "table" ? "true" : "false"} class={[ui.view === "table" && "is-active"]} onclick={() => ui.view = "table"}>Table</button>
+          </div>
+
+          <div class="cluster is-sm">
+            <span class="pill is-success live-pill" title="New responses appear here as they arrive"><span class="pill-dot"></span>Updating live</span>
+            <a class="button is-sm" href={`/forms/${form.id}/responses.csv`} download>Export CSV</a>
+          </div>
+        </div>
+
+        <div e:if={responses.length === 0} class="responses-empty stack is-sm center">
+          <h2>No responses yet</h2>
+          <p e:if={form.published} class="hint">Share <a href={`/f/${form.slug}`} target="_blank" rel="noopener">the public link</a>. Responses show up here the moment they are submitted.</p>
+          <p e:else class="hint">Publish the form from the <a href={`/forms/${form.id}`}>Build tab</a> to start collecting responses.</p>
+        </div>
+
+        <div e:elseif={ui.view === "summary"} class="stack is-lg">
+          <div class="stat-row">
+            <div class="stat stack is-xs"><span class="stat-label">Responses</span><span class="stat-value">{responses.length}</span></div>
+            <div class="stat stack is-xs"><span class="stat-label">Last 7 days</span><span class="stat-value">{lastWeek(responses)}</span></div>
+            <div class="stat stack is-xs"><span class="stat-label">Latest</span><span class="stat-value is-text">{ago(responses)}</span></div>
+          </div>
+
+          <div class="summary-grid">
+            <QuestionSummary e:for={field of fields} {field} rows={responses}/>
+          </div>
+        </div>
+
+        <div e:else class="table-wrap">
+          <table class="responses-table">
+            <thead>
+              <tr>
+                <th class="col-time" scope="col">Submitted</th>
+                <th e:for={field of fields} scope="col" title={field.label}>{field.label}</th>
+                <th class="col-actions"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr e:for={row of newestFirst(responses)} class={[+row.createdAt > ui.loadedAt && "is-fresh"]}>
+                <td class="col-time">{stamp(row.createdAt)}</td>
+                <td e:for={field of fields}
+                    e:key={(f) => f.id}
+                    class={[!formatAnswer(field, answerOf(row, field)) && "is-empty", field.kind === "long" && "is-long"]}>
+                  <a e:if={fileOf(answerOf(row, field))} class="file-link" href={`/files/${fileOf(answerOf(row, field))?.id}`}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                    {fileOf(answerOf(row, field))?.name}
+                  </a>
+                  <span e:else>{formatAnswer(field, answerOf(row, field)) || "–"}</span>
+                </td>
+                <td class="col-actions">
+                  <button class="is-ghost is-sm row-delete" aria-label="Delete response" onclick={() => onDelete(responses, row)}>Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </AppShell>
+  </body>
+</html>

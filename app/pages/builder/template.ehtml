@@ -1,0 +1,464 @@
+import "./style.css";
+import { LiveView, redirect, sql } from "@elements/app";
+import { AppShell } from "#app/shared/templates/app-shell";
+import { FormNav } from "#app/shared/templates/form-nav";
+import {
+  Field,
+  FieldKind,
+  Form,
+  FIELD_KINDS,
+  RATING_MAX,
+  THEME_COLORS,
+  assertOwner,
+  byPosition,
+  isChoice,
+} from "#app/shared/services/forms";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+
+// A title is one line: Enter finishes the edit instead of adding a newline.
+function onTitleKey(e: KeyboardEvent) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    (e.target as HTMLTextAreaElement).blur();
+  }
+}
+
+interface DragState {
+  id: string;
+  overId: string;
+  after: boolean;
+  focusId: string;
+  copied: boolean;
+}
+
+const KIND_GLYPHS: Record<FieldKind, string> = {
+  short: "Aa",
+  long: "¶",
+  email: "@",
+  number: "#",
+  single: "◉",
+  multiple: "☑",
+  date: "31",
+  rating: "★",
+  file: "↑",
+};
+
+const DEFAULT_LABELS: Record<FieldKind, string> = {
+  short: "Short answer question",
+  long: "Tell us more",
+  email: "Email address",
+  number: "How many?",
+  single: "Pick one",
+  multiple: "Pick any that apply",
+  date: "Pick a date",
+  rating: "How would you rate it?",
+  file: "Upload a file",
+};
+
+/** @rpc */
+export function deleteForm(formId: string) {
+  assertOwner(formId);
+  sql(`delete from forms where id = ${formId}`);
+  redirect("/forms");
+}
+
+function onDeleteForm(form: Form, responseCount: number) {
+  let message = responseCount > 0
+    ? `Delete "${form.title}" and its ${responseCount} responses? This cannot be undone.`
+    : `Delete "${form.title}"? This cannot be undone.`;
+
+  if (confirm(message)) {
+    deleteForm(form.id);
+  }
+}
+
+function saveForm(forms: LiveView<Form>, form: Form) {
+  forms.update(form);
+}
+
+function onTogglePublished(forms: LiveView<Form>, form: Form) {
+  form.published = !form.published;
+  forms.update(form);
+}
+
+function onPickColor(forms: LiveView<Form>, form: Form, color: string) {
+  form.themeColor = color;
+  forms.update(form);
+}
+
+function onCopyLink(state: DragState, url: string) {
+  state.copied = true;
+  setTimeout(() => state.copied = false, 1600);
+
+  try {
+    navigator.clipboard.writeText(url);
+  } catch {
+    // Insecure origins have no clipboard; the field is still selectable.
+  }
+}
+
+function onAddField(fields: LiveView<Field>, state: DragState, kind: FieldKind) {
+  let last = fields.sort(byPosition).at(-1);
+
+  let row = fields.insert({
+    kind,
+    label: DEFAULT_LABELS[kind],
+    helpText: "",
+    required: false,
+    options: isChoice(kind) ? ["Option 1", "Option 2"] : [],
+    position: (last?.position ?? 0) + 1,
+  });
+
+  state.focusId = row.id;
+}
+
+function saveField(fields: LiveView<Field>, field: Field) {
+  fields.update(field);
+}
+
+function onChangeKind(fields: LiveView<Field>, field: Field) {
+  if (isChoice(field.kind) && field.options.length === 0) {
+    field.options = ["Option 1", "Option 2"];
+  }
+
+  fields.update(field);
+}
+
+function onAddOption(fields: LiveView<Field>, field: Field) {
+  field.options = [...field.options, `Option ${field.options.length + 1}`];
+  fields.update(field);
+}
+
+function onRemoveOption(fields: LiveView<Field>, field: Field, index: number) {
+  field.options = field.options.filter((_, i) => i !== index);
+  fields.update(field);
+}
+
+function onOptionChange(fields: LiveView<Field>, field: Field, index: number, value: string) {
+  field.options = field.options.map((o, i) => (i === index ? value : o));
+  fields.update(field);
+}
+
+function onDeleteField(fields: LiveView<Field>, field: Field) {
+  fields.delete(field);
+}
+
+/** Where a field lands when dropped before or after another: halfway between its new neighbours. */
+export function positionFor(sorted: Field[], movingId: string, targetId: string, after: boolean): number | undefined {
+  let rest = sorted.filter((f) => f.id !== movingId);
+  let index = rest.findIndex((f) => f.id === targetId);
+
+  if (index < 0) {
+    return undefined;
+  }
+
+  let insertAt = after ? index + 1 : index;
+  let prev = rest[insertAt - 1];
+  let next = rest[insertAt];
+
+  if (!prev && !next) {
+    return 1;
+  }
+
+  if (!prev) {
+    return next!.position - 1;
+  }
+
+  if (!next) {
+    return prev.position + 1;
+  }
+
+  return (prev.position + next.position) / 2;
+}
+
+function moveField(fields: LiveView<Field>, field: Field, targetId: string, after: boolean) {
+  let position = positionFor(fields.sort(byPosition), field.id, targetId, after);
+
+  if (position === undefined || position === field.position) {
+    return;
+  }
+
+  field.position = position;
+  fields.update(field);
+}
+
+function onDragStart(e: DragEvent, state: DragState, field: Field) {
+  state.id = field.id;
+
+  let card = (e.target as HTMLElement).closest(".field-card");
+
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", field.id);
+
+    if (card) {
+      e.dataTransfer.setDragImage(card, 24, 24);
+    }
+  }
+}
+
+function onDragOver(e: DragEvent, state: DragState, field: Field) {
+  if (!state.id) {
+    return;
+  }
+
+  e.preventDefault();
+
+  let rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  state.overId = field.id === state.id ? "" : field.id;
+  state.after = e.clientY > rect.top + rect.height / 2;
+}
+
+function onDrop(e: DragEvent, fields: LiveView<Field>, state: DragState) {
+  e.preventDefault();
+
+  let moving = fields.get(state.id);
+
+  if (moving && state.overId) {
+    moveField(fields, moving, state.overId, state.after);
+  }
+
+  onDragEnd(state);
+}
+
+function onListDragLeave(e: DragEvent, state: DragState) {
+  if (e.target === e.currentTarget) {
+    state.overId = "";
+  }
+}
+
+function onDragEnd(state: DragState) {
+  state.id = "";
+  state.overId = "";
+}
+
+function onHandleKey(e: KeyboardEvent, fields: LiveView<Field>, field: Field) {
+  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+    return;
+  }
+
+  e.preventDefault();
+
+  let sorted = fields.sort(byPosition);
+  let index = sorted.findIndex((f) => f.id === field.id);
+  let neighbour = sorted[e.key === "ArrowUp" ? index - 1 : index + 1];
+
+  if (neighbour) {
+    moveField(fields, field, neighbour.id, e.key === "ArrowDown");
+  }
+}
+
+function dropClass(state: DragState, field: Field): string | false {
+  if (state.overId !== field.id) {
+    return false;
+  }
+
+  return state.after ? "is-drop-after" : "is-drop-before";
+}
+
+<html lang="en" class="page-builder" (
+  forms: LiveView<Form>,
+  fields: LiveView<Field>,
+  appUrl: string,
+  responseCount: number,
+  private state: DragState = { id: "", overId: "", after: false, focusId: "", copied: false },
+)>
+  <head>
+    <title>{forms.at(0)?.title ?? "Form"} · fieldloft</title>
+    <meta name="description" content="Build your form">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <AppShell>
+      <div e:for={form of forms} class="page-shell is-wide stack is-xl builder-theme" style={{ "--form-color": form.themeColor }}>
+        <FormNav {form} active="build" {responseCount}/>
+
+        <div class="builder">
+          <div class="builder-canvas stack is-md">
+            <div class="builder-intro stack is-xs">
+              <textarea class="builder-title"
+                        aria-label="Form title"
+                        rows={1}
+                        value={form.title}
+                        onkeydown={(e) => onTitleKey(e)}
+                        onchange={() => saveForm(forms, form)}/>
+              <textarea class="builder-description"
+                        aria-label="Form description"
+                        rows={2}
+                        placeholder="Add a description (optional)"
+                        value={form.description}
+                        onchange={() => saveForm(forms, form)}/>
+            </div>
+
+            <ol class="field-list" ondragleave={(e) => onListDragLeave(e, state)}>
+              <li e:for={[index, field] of fields.sort(byPosition).entries()}
+                  e:key={([index, field]) => field.id}
+                  class={["field-card", state.id === field.id && "is-dragging", dropClass(state, field)]}
+                  ondragover={(e) => onDragOver(e, state, field)}
+                  ondrop={(e) => onDrop(e, fields, state)}>
+                <div class="field-grip">
+                  <button type="button"
+                          class="field-handle"
+                          draggable="true"
+                          aria-label={`Move question ${index + 1}. Drag, or use the arrow keys.`}
+                          title="Drag to reorder"
+                          ondragstart={(e) => onDragStart(e, state, field)}
+                          ondragend={() => onDragEnd(state)}
+                          onkeydown={(e) => onHandleKey(e, fields, field)}>
+                    <svg width="14" height="20" viewBox="0 0 14 20" aria-hidden="true">
+                      <circle cx="4" cy="4" r="1.6" fill="currentColor"/><circle cx="10" cy="4" r="1.6" fill="currentColor"/>
+                      <circle cx="4" cy="10" r="1.6" fill="currentColor"/><circle cx="10" cy="10" r="1.6" fill="currentColor"/>
+                      <circle cx="4" cy="16" r="1.6" fill="currentColor"/><circle cx="10" cy="16" r="1.6" fill="currentColor"/>
+                    </svg>
+                  </button>
+                  <span class="field-number">{index + 1}</span>
+                </div>
+
+                <div class="stack is-sm">
+                  <div class="field-head">
+                    <input class="field-label"
+                           aria-label="Question"
+                           placeholder="Question"
+                           value={field.label}
+                           focus={state.focusId === field.id}
+                           onchange={() => saveField(fields, field)}>
+                    <select aria-label="Answer type" value={field.kind} onchange={() => onChangeKind(fields, field)}>
+                      <option e:for={k of FIELD_KINDS} e:key={(k) => k.kind} value={k.kind}>{k.label}</option>
+                    </select>
+                  </div>
+
+                  <input class="field-help"
+                         aria-label="Help text"
+                         placeholder="Help text (optional)"
+                         value={field.helpText}
+                         onchange={() => saveField(fields, field)}>
+
+                  <div e:if={isChoice(field.kind)} class="stack is-xs">
+                    <div e:for={[i, option] of field.options.entries()} e:key={([i]) => i} class="option-row row">
+                      <span class={["option-mark", field.kind === "multiple" && "is-square"]} aria-hidden="true"></span>
+                      <input aria-label={`Option ${i + 1}`}
+                             value={option}
+                             onchange={(e) => onOptionChange(fields, field, i, (e.target as HTMLInputElement).value)}>
+                      <button type="button"
+                              class="is-ghost is-sm is-icon"
+                              aria-label={`Remove option ${i + 1}`}
+                              disabled={field.options.length <= 1}
+                              onclick={() => onRemoveOption(fields, field, i)}>✕</button>
+                    </div>
+                    <div>
+                      <button type="button" class="is-ghost is-sm" onclick={() => onAddOption(fields, field)}>+ Add option</button>
+                    </div>
+                  </div>
+
+                  <div e:elseif={field.kind === "rating"} class="field-sample field-stars" aria-hidden="true">
+                    <svg e:for={n of Array.from({ length: RATING_MAX }, (_, i) => i + 1)} width="22" height="22" viewBox="0 0 24 24">
+                      <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>
+                    </svg>
+                  </div>
+
+                  <div e:elseif={field.kind === "file"} class="field-sample field-drop" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0l-5 5m5-5l5 5M4 20h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Respondents attach one file, up to 5 MB
+                  </div>
+
+                  <div e:elseif={field.kind === "long"} class="field-sample" aria-hidden="true">
+                    <textarea tabindex={-1} placeholder="Long answer"></textarea>
+                  </div>
+
+                  <div e:else class="field-sample" aria-hidden="true">
+                    <input tabindex={-1} placeholder={field.kind === "date" ? "mm / dd / yyyy" : field.kind === "email" ? "name@example.com" : field.kind === "number" ? "0" : "Short answer"}>
+                  </div>
+
+                  <div class="field-foot row">
+                    <label>
+                      <input type="checkbox" checked={field.required} onchange={() => saveField(fields, field)}>
+                      Required
+                    </label>
+                    <button type="button" class="is-ghost is-sm" onclick={() => onDeleteField(fields, field)}>Delete</button>
+                  </div>
+                </div>
+              </li>
+            </ol>
+
+            <div e:if={fields.length === 0} class="builder-empty stack is-sm">
+              <strong>No questions yet</strong>
+              <span>Pick an answer type on the right to add your first question.</span>
+            </div>
+          </div>
+
+          <aside class="builder-side stack is-md">
+            <section class="side-card stack is-md" aria-labelledby="add-title">
+              <h2 id="add-title">Add a question</h2>
+              <div class="kind-grid">
+                <button e:for={k of FIELD_KINDS}
+                        e:key={(k) => k.kind}
+                        type="button"
+                        class="kind-button row"
+                        onclick={() => onAddField(fields, state, k.kind)}>
+                  <span class="kind-icon" aria-hidden="true">{KIND_GLYPHS[k.kind]}</span>
+                  {k.label}
+                </button>
+              </div>
+            </section>
+
+            <section class="side-card stack is-md" aria-labelledby="publish-title">
+              <div class="publish-row row">
+                <h2 id="publish-title">Sharing</h2>
+                <span e:if={form.published} class="pill is-success"><span class="pill-dot"></span>Accepting responses</span>
+                <span e:else class="pill">Not published</span>
+              </div>
+
+              <div e:if={form.published} class="stack is-sm">
+                <div class="share-link row">
+                  <input readonly aria-label="Public link" value={`${appUrl}/f/${form.slug}`} onfocus={(e) => (e.target as HTMLInputElement).select()}>
+                  <button type="button" class="is-sm" onclick={() => onCopyLink(state, `${appUrl}/f/${form.slug}`)}>{state.copied ? "Copied" : "Copy"}</button>
+                </div>
+                <button type="button" class="is-sm is-block" onclick={() => onTogglePublished(forms, form)}>Stop accepting responses</button>
+              </div>
+
+              <div e:else class="stack is-sm">
+                <p class="hint">Publish to get a public link anyone can fill in.</p>
+                <button type="button" class="is-primary is-block" onclick={() => onTogglePublished(forms, form)}>Publish form</button>
+              </div>
+            </section>
+
+            <section class="side-card stack is-md" aria-labelledby="look-title">
+              <h2 id="look-title">Look and follow-up</h2>
+
+              <div class="field">
+                <label>Theme color</label>
+                <div class="swatches cluster">
+                  <button e:for={color of THEME_COLORS}
+                          e:key={(c) => c}
+                          type="button"
+                          class={["swatch", form.themeColor === color && "is-active"]}
+                          style={{ "--swatch": color }}
+                          aria-label={`Use ${color}`}
+                          aria-pressed={form.themeColor === color ? "true" : "false"}
+                          onclick={() => onPickColor(forms, form, color)}></button>
+                  <input type="color" class="swatch-custom" aria-label="Custom color" value={form.themeColor} onchange={() => saveForm(forms, form)}>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="thanks">Thank-you message</label>
+                <textarea id="thanks" value={form.thankYouMessage} onchange={() => saveForm(forms, form)}/>
+                <p class="hint">Shown after someone submits.</p>
+              </div>
+
+              <label class="check-row">
+                <input type="checkbox" checked={form.notifyOwner} onchange={() => saveForm(forms, form)}>
+                <span>Email me for each new response</span>
+              </label>
+            </section>
+
+            <div class="builder-danger row">
+              <span>Created {form.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+              <button type="button" class="is-ghost is-danger is-sm" onclick={() => onDeleteForm(form, responseCount)}>Delete form</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </AppShell>
+  </body>
+</html>

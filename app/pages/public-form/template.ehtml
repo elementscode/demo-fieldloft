@@ -1,0 +1,32 @@
+import "./style.css";
+import { Field } from "#app/shared/services/forms";
+import { FormView, PublicForm } from "#app/shared/templates/form-view";
+import { Brand } from "#app/shared/templates/brand";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+
+<html lang="en" class="page-public-form" (
+  form: PublicForm,
+  fields: Field[],
+  open: boolean,
+) style={{ "--page-color": form.themeColor }}>
+  <head>
+    <title>{form.title}</title>
+    <meta name="description" content={form.description || form.title}>
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <main class="public-main">
+      <FormView e:if={open} {form} {fields}/>
+
+      <div e:else class="public-closed stack is-md">
+        <h1>{form.title}</h1>
+        <p class="hint">This form is not accepting responses right now. If you think that is a mistake, contact whoever sent you the link.</p>
+      </div>
+
+      <div class="public-foot row center is-sm">
+        <span>Made with</span>
+        <Brand href="/signin"/>
+      </div>
+    </main>
+  </body>
+</html>

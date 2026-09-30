@@ -1,0 +1,13 @@
+import "./style.css";
+
+<Brand (href: string = "/")>
+  <a class="brand" href={href}>
+    <svg class="brand-mark" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="2" y="2" width="20" height="20" rx="5" fill="currentColor"/>
+      <rect x="6" y="7" width="12" height="2.4" rx="1.2" fill="#fff"/>
+      <rect x="6" y="11" width="8" height="2.4" rx="1.2" fill="#fff" opacity="0.8"/>
+      <rect x="6" y="15" width="10" height="2.4" rx="1.2" fill="#fff" opacity="0.6"/>
+    </svg>
+    fieldloft
+  </a>
+</Brand>
