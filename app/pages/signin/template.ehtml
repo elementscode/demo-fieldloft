@@ -1,0 +1,102 @@
+import "./style.css";
+import { redirect } from "@elements/app";
+import { signin, DEMO_ACCOUNTS, DEMO_PASSWORD } from "#app/shared/services/auth";
+import { AuthAside } from "#app/shared/templates/auth-aside";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+
+interface SigninForm {
+  email: string;
+  password: string;
+  error: string;
+  busy: boolean;
+}
+
+function onSubmit(form: SigninForm) {
+  form.busy = true;
+
+  try {
+    signin(form.email, form.password);
+    form.error = "";
+    redirect("/forms");
+  } catch (err: any) {
+    form.error = err.message;
+    form.busy = false;
+  }
+}
+
+function onPickDemo(form: SigninForm, email: string) {
+  form.email = email;
+  form.password = DEMO_PASSWORD;
+  onSubmit(form);
+}
+
+<html lang="en" class="page-signin" (
+  private form: SigninForm = { email: "", password: "", error: "", busy: false },
+)>
+  <head>
+    <title>Sign in · fieldloft</title>
+    <meta name="description" content="Sign in to fieldloft">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <div class="auth">
+      <AuthAside/>
+
+      <main class="auth-main">
+        <div class="auth-panel stack is-xl">
+          <form class="stack is-md" onsubmit={() => onSubmit(form)}>
+            <h2>Sign in</h2>
+
+            <p e:if={form.error} class="error" role="alert">{form.error}</p>
+
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email"
+                     name="email"
+                     type="email"
+                     value={form.email}
+                     autocomplete="email"
+                     autocapitalize="none"
+                     spellcheck={false}
+                     placeholder="you@example.com"
+                     required>
+            </div>
+
+            <div class="field">
+              <label for="password">Password</label>
+              <input id="password"
+                     name="password"
+                     type="password"
+                     value={form.password}
+                     autocomplete="current-password"
+                     required>
+            </div>
+
+            <button type="submit" class="is-primary is-block" disabled={form.busy}>Sign in</button>
+
+            <p class="hint">New here? <a href="/signup">Create an account</a></p>
+          </form>
+
+          <section class="auth-demo stack is-sm" aria-labelledby="demo-title">
+            <p id="demo-title" class="auth-demo-title">Demo accounts</p>
+
+            <button e:for={account of DEMO_ACCOUNTS}
+                    e:key={(a) => a.email}
+                    type="button"
+                    class="auth-demo-account row"
+                    onclick={() => onPickDemo(form, account.email)}>
+              <span>
+                <strong>{account.name}</strong>
+                <small>{account.email}</small>
+                <small>{account.forms}</small>
+              </span>
+              <span aria-hidden="true">→</span>
+            </button>
+
+            <p class="auth-demo-password">Password for both: <code>{DEMO_PASSWORD}</code></p>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

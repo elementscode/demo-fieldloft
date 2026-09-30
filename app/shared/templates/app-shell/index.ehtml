@@ -1,0 +1,33 @@
+import "./style.css";
+import { redirect, session } from "@elements/app";
+import { signout } from "#app/shared/services/auth";
+import { Brand } from "#app/shared/templates/brand";
+
+function initials(name: string | undefined): string {
+  return (name ?? "?").split(/\s+/).map((part) => part[0] ?? "").join("").slice(0, 2).toUpperCase();
+}
+
+function onSignout() {
+  signout();
+  redirect("/signin");
+}
+
+<AppShell>
+  <div class="app">
+    <header class="shell-header">
+      <div class="shell-header-inner row">
+        <Brand href="/forms"/>
+
+        <div class="row is-sm shell-user">
+          <span class="shell-avatar" aria-hidden="true">{initials(session.get("userName"))}</span>
+          <span class="shell-name">{session.get("userName")}</span>
+          <button class="is-ghost is-sm" onclick={() => onSignout()}>Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main shell-main">
+      <slot/>
+    </main>
+  </div>
+</AppShell>

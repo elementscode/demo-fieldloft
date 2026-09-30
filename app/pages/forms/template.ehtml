@@ -1,0 +1,133 @@
+import "./style.css";
+import { redirect, session, sql, tx } from "@elements/app";
+import { AppShell } from "#app/shared/templates/app-shell";
+import { newSlug, THEME_COLORS } from "#app/shared/services/forms";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+
+export interface FormSummary {
+  id: string;
+  title: string;
+  slug: string;
+  published: boolean;
+  themeColor: string;
+  fieldCount: number;
+  responseCount: number;
+  lastResponseAt: Date | null;
+}
+
+export function listForms(ownerId: string): FormSummary[] {
+  return sql<FormSummary>(`
+    select f.id, f.title, f.slug, f.published, f.themeColor,
+           (select count(*)::int from fields where formId = f.id) as fieldCount,
+           (select count(*)::int from responses where formId = f.id) as responseCount,
+           (select max(createdAt) from responses where formId = f.id) as lastResponseAt
+      from forms f
+     where f.ownerId = ${ownerId}
+     order by f.createdAt desc
+  `).all();
+}
+
+/** @rpc */
+export function createForm(): string {
+  let ownerId = session.getOrThrow("userId");
+  let color = THEME_COLORS[Math.floor(Math.random() * THEME_COLORS.length)];
+
+  let form = tx(() => {
+    let row = sql<{ id: string }>(`
+      insert into forms (ownerId, slug, themeColor)
+           values (${ownerId}, ${newSlug()}, ${color})
+        returning id
+    `).firstOrThrow();
+
+    sql(`
+      insert into fields (formId, position, kind, label, required)
+           values (${row.id}, 1, 'short', 'Your name', true)
+    `);
+
+    return row;
+  });
+
+  redirect(`/forms/${form.id}`);
+  return form.id;
+}
+
+function onNewForm(busy: { value: boolean }) {
+  busy.value = true;
+  createForm();
+}
+
+function ago(date: Date | null): string {
+  if (!date) {
+    return "No responses yet";
+  }
+
+  let minutes = Math.round((Date.now() - +date) / 60000);
+
+  if (minutes < 1) {
+    return "Last response just now";
+  }
+
+  if (minutes < 60) {
+    return `Last response ${minutes}m ago`;
+  }
+
+  let hours = Math.round(minutes / 60);
+
+  if (hours < 24) {
+    return `Last response ${hours}h ago`;
+  }
+
+  return `Last response ${Math.round(hours / 24)}d ago`;
+}
+
+<html lang="en" class="page-forms" (forms: FormSummary[], private busy: { value: boolean } = { value: false })>
+  <head>
+    <title>Your forms · fieldloft</title>
+    <meta name="description" content="Your forms">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <AppShell>
+      <div class="page-shell is-wide stack is-xl">
+        <div class="forms-head row">
+          <div class="stack is-xs">
+            <h1>Your forms</h1>
+            <p class="hint">{forms.length} {forms.length === 1 ? "form" : "forms"} · {forms.reduce((n, f) => n + f.responseCount, 0)} responses</p>
+          </div>
+
+          <button class="is-primary" disabled={busy.value} onclick={() => onNewForm(busy)}>+ New form</button>
+        </div>
+
+        <ul e:if={forms.length > 0} class="forms-grid">
+          <li e:for={form of forms}>
+            <article class="form-tile" style={{ "--tile-color": form.themeColor }}>
+              <div class="stack is-sm">
+                <div class="row is-sm">
+                  <span e:if={form.published} class="pill is-success"><span class="pill-dot"></span>Live</span>
+                  <span e:else class="pill">Draft</span>
+                  <span class="hint">{form.fieldCount} {form.fieldCount === 1 ? "question" : "questions"}</span>
+                </div>
+                <h2 class="form-tile-title"><a href={`/forms/${form.id}`}>{form.title}</a></h2>
+              </div>
+
+              <div class="form-tile-meta row">
+                <div class="stack is-xs">
+                  <span><span class="form-tile-count">{form.responseCount}</span> {form.responseCount === 1 ? "response" : "responses"}</span>
+                  <span>{ago(form.lastResponseAt)}</span>
+                </div>
+
+                <a class="form-tile-actions button is-sm" href={`/forms/${form.id}/responses`}>View responses</a>
+              </div>
+            </article>
+          </li>
+        </ul>
+
+        <div e:else class="forms-empty stack is-md center">
+          <h2>No forms yet</h2>
+          <p class="hint">Start one and add your first questions. You can publish it when it is ready.</p>
+          <button class="is-primary" disabled={busy.value} onclick={() => onNewForm(busy)}>Create your first form</button>
+        </div>
+      </div>
+    </AppShell>
+  </body>
+</html>

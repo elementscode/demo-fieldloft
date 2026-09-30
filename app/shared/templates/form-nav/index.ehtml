@@ -1,0 +1,39 @@
+import "./style.css";
+
+export type FormTab = "build" | "preview" | "responses";
+
+export interface FormNavInfo {
+  id: string;
+  title: string;
+  slug: string;
+  published: boolean;
+  themeColor: string;
+}
+
+<FormNav (form: FormNavInfo, active: FormTab, responseCount: number = -1)>
+  <nav class="form-nav stack" aria-label="Form">
+    <div class="form-nav-top row">
+      <div class="stack is-xs">
+        <a class="form-nav-back" href="/forms">← All forms</a>
+        <div class="form-nav-heading row is-sm">
+          <span class="form-nav-swatch" style={{ "--swatch": form.themeColor }} aria-hidden="true"></span>
+          <h1 class="form-nav-title">{form.title}</h1>
+          <span e:if={form.published} class="pill is-success"><span class="pill-dot"></span>Live</span>
+          <span e:else class="pill">Draft</span>
+        </div>
+      </div>
+
+      <a e:if={form.published} class="button is-sm" href={`/f/${form.slug}`} target="_blank" rel="noopener">Open public form ↗</a>
+    </div>
+
+    <div class="tabs">
+      <div class="tab-list">
+        <a class={["tab", active === "build" && "is-active"]} href={`/forms/${form.id}`}>Build</a>
+        <a class={["tab", active === "preview" && "is-active"]} href={`/forms/${form.id}/preview`}>Preview</a>
+        <a class={["tab", active === "responses" && "is-active"]} href={`/forms/${form.id}/responses`}>
+          Responses<span e:if={responseCount >= 0} class="form-nav-count">{responseCount}</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+</FormNav>
