@@ -1,4 +1,4 @@
-![Fieldloft, a form builder built with Elements: the responses summary for a customer survey, with live counts, star ratings and bar charts for each rating question.](POSTER_URL)
+![Fieldloft, a form builder built with Elements: the responses summary for a customer survey, with live counts, star ratings and bar charts for each rating question.](https://elements.dev/demos/01a0f435-685a-7329-902c-9c4ba3cc9e14/poster?v=ff8dd25d5659)
 
 # Fieldloft
 
@@ -6,7 +6,7 @@
 
 Build forms with nine field types, publish them at a themed public link, and watch responses fill a live table and charts, with CSV export and an email per response.
 
-**Demo:** [Fieldloft](TBD)
+**Demo:** [Fieldloft](https://elements.dev/demos/01a0f435-685a-7329-902c-9c4ba3cc9e14)
 
 ## Agent specs
 
