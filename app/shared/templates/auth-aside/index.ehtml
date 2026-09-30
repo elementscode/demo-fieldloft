@@ -1,0 +1,25 @@
+import "./style.css";
+import { Brand } from "#app/shared/templates/brand";
+
+<AuthAside>
+  <aside class="auth-aside">
+    <Brand/>
+
+    <div class="auth-pitch stack is-md">
+      <h1>Forms people finish.</h1>
+      <p>Build a form in minutes, publish it at a link, and watch responses and charts fill in as they arrive.</p>
+    </div>
+
+    <div class="auth-sample stack is-sm" aria-hidden="true">
+      <div class="auth-sample-line is-label"></div>
+      <div class="auth-sample-input"></div>
+      <div class="auth-sample-line is-label"></div>
+      <div class="auth-sample-stars">
+        <svg e:for={n of [1, 2, 3, 4, 5]} width="18" height="18" viewBox="0 0 24 24">
+          <path fill={n <= 4 ? "currentColor" : "none"} stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>
+        </svg>
+      </div>
+      <div class="auth-sample-bar"></div>
+    </div>
+  </aside>
+</AuthAside>

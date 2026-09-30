@@ -1,0 +1,23 @@
+@import "#app/shared/styles/page.css";
+
+.preview-stage {
+  padding: var(--space-8) var(--space-4);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(90% 60% at 50% 0%, color-mix(in oklch, var(--stage-color) 14%, transparent), transparent 70%),
+    color-mix(in oklch, var(--stage-color) 4%, var(--bg-canvas));
+}
+
+.preview-note {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+@media (max-width: 40rem) {
+  .preview-stage {
+    padding: var(--space-4) var(--space-2);
+    border-radius: var(--radius-lg);
+  }
+}

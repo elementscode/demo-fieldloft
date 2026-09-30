@@ -1,0 +1,234 @@
+import "./style.css";
+import { File, ValidationError } from "@elements/app";
+import { Field, RATING_MAX, checkAnswers, submitResponse } from "#app/shared/services/forms";
+
+export interface PublicForm {
+  id: string;
+  title: string;
+  description: string;
+  themeColor: string;
+  thankYouMessage: string;
+}
+
+interface Entry {
+  id: string;
+  field: Field;
+  value: any;
+  file: File | undefined;
+  error: string;
+}
+
+interface FillState {
+  entries: Entry[];
+  status: "idle" | "sending" | "done";
+  failure: string;
+}
+
+const RATING_WORDS = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
+
+function emptyEntries(fields: Field[]): Entry[] {
+  return fields.map((field) => ({
+    id: field.id,
+    field,
+    value: field.kind === "multiple" ? [] : "",
+    file: undefined,
+    error: "",
+  }));
+}
+
+function showErrors(state: FillState, errors: Record<string, string>) {
+  for (let entry of state.entries) {
+    entry.error = errors[entry.id] ?? "";
+  }
+
+  let first = state.entries.find((e) => e.error);
+
+  if (first) {
+    document.getElementById(`q-${first.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function inputType(field: Field): "email" | "number" | "date" | "text" {
+  switch (field.kind) {
+    case "email":
+      return "email";
+
+    case "number":
+      return "number";
+
+    case "date":
+      return "date";
+
+    default:
+      return "text";
+  }
+}
+
+function onSubmit(form: PublicForm, fields: Field[], preview: boolean, state: FillState) {
+  let answers = Object.fromEntries(state.entries.map((e) => [e.id, e.value]));
+  let files = Object.fromEntries(state.entries.map((e) => [e.id, e.file]));
+  let { errors } = checkAnswers(fields, answers, files);
+
+  state.failure = "";
+  showErrors(state, errors);
+
+  if (Object.keys(errors).length > 0) {
+    return;
+  }
+
+  if (preview) {
+    state.status = "done";
+    return;
+  }
+
+  state.status = "sending";
+
+  try {
+    submitResponse({ formId: form.id, answers, files });
+    state.status = "done";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err: any) {
+    state.status = "idle";
+
+    if (err instanceof ValidationError && err.errors) {
+      showErrors(state, Object.fromEntries(Object.entries(err.errors).map(([id, messages]) => [id, String((messages as string[])[0])])));
+    } else {
+      state.failure = err.message ?? "Something went wrong. Try again.";
+    }
+  }
+}
+
+function onRate(entry: Entry, n: number) {
+  entry.value = entry.value === n ? "" : n;
+  entry.error = "";
+}
+
+function onAnswer(entry: Entry) {
+  entry.error = "";
+}
+
+function onAgain(fields: Field[], state: FillState) {
+  state.entries = emptyEntries(fields);
+  state.status = "idle";
+}
+
+function fileSize(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+<FormView (
+  form: PublicForm,
+  fields: Field[],
+  preview: boolean = false,
+  private state: FillState = { entries: emptyEntries(fields), status: "idle" as FillState["status"], failure: "" },
+)>
+  <div class="fv" style={{ "--fv-color": form.themeColor }}>
+    <div class="fv-card">
+      <div class="fv-band"></div>
+
+      <div e:if={state.status === "done"} class="fv-done stack is-lg" role="status">
+        <div class="fv-done-mark" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="stack is-sm">
+          <h2>{preview ? "This is where they land" : "Thank you!"}</h2>
+          <p>{form.thankYouMessage}</p>
+        </div>
+        <div>
+          <button type="button" class="is-ghost" onclick={() => onAgain(fields, state)}>{preview ? "Back to the form" : "Submit another response"}</button>
+        </div>
+      </div>
+
+      <form e:else novalidate onsubmit={() => onSubmit(form, fields, preview, state)}>
+        <header class="fv-head stack is-sm">
+          <h1>{form.title}</h1>
+          <p e:if={form.description}>{form.description}</p>
+          <span e:if={fields.some((f) => f.required)} class="fv-required-note"><span class="fv-star" aria-hidden="true">*</span> Required</span>
+        </header>
+
+        <div class="fv-body stack is-xl">
+          <fieldset e:for={entry of state.entries} id={`q-${entry.id}`} class="fv-question">
+            <legend>
+              {entry.field.label || "Untitled question"}
+              <span e:if={entry.field.required} class="fv-star" aria-label="required">*</span>
+            </legend>
+            <p e:if={entry.field.helpText} class="fv-help">{entry.field.helpText}</p>
+
+            <div e:if={entry.field.kind === "long"}>
+              <textarea aria-label={entry.field.label}
+                        class={[entry.error && "is-error"]}
+                        value={entry.value}
+                        oninput={() => onAnswer(entry)}/>
+            </div>
+
+            <div e:elseif={entry.field.kind === "single"} class="fv-choices" role="radiogroup" aria-label={entry.field.label}>
+              <label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
+                <input type="radio" name={entry.id} group={entry.value} value={option} onchange={() => onAnswer(entry)}>
+                {option}
+              </label>
+            </div>
+
+            <div e:elseif={entry.field.kind === "multiple"} class="fv-choices">
+              <label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
+                <input type="checkbox" group={entry.value} value={option} onchange={() => onAnswer(entry)}>
+                {option}
+              </label>
+            </div>
+
+            <div e:elseif={entry.field.kind === "rating"} class="row" role="radiogroup" aria-label={entry.field.label}>
+              <div class="fv-rating">
+                <button e:for={n of Array.from({ length: RATING_MAX }, (_, i) => i + 1)}
+                        e:key={(n) => n}
+                        type="button"
+                        role="radio"
+                        aria-checked={entry.value === n ? "true" : "false"}
+                        aria-label={`${n} of ${RATING_MAX}`}
+                        class={["fv-rate", Number(entry.value) >= n && "is-on"]}
+                        onclick={() => onRate(entry, n)}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>
+                  </svg>
+                </button>
+              </div>
+              <span class="fv-rating-label">{RATING_WORDS[Number(entry.value) || 0]}</span>
+            </div>
+
+            <label e:elseif={entry.field.kind === "file"} class={["fv-file", entry.file && "has-file"]}>
+              <span class="fv-file-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 16V4m0 0l-5 5m5-5l5 5M4 20h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span e:if={entry.file}>
+                <strong>{entry.file?.name}</strong><br>
+                {fileSize(entry.file?.size ?? 0)} · click to replace
+              </span>
+              <span e:else>Choose a file, or drop it here<br>Up to 5 MB</span>
+              <input type="file" aria-label={entry.field.label} value={entry.file} onchange={() => onAnswer(entry)}>
+            </label>
+
+            <div e:else>
+              <input type={inputType(entry.field)}
+                     aria-label={entry.field.label}
+                     class={[entry.error && "is-error"]}
+                     inputmode={entry.field.kind === "number" ? "decimal" : undefined}
+                     autocomplete={entry.field.kind === "email" ? "email" : undefined}
+                     placeholder={entry.field.kind === "email" ? "name@example.com" : ""}
+                     value={entry.value}
+                     oninput={() => onAnswer(entry)}>
+            </div>
+
+            <p e:if={entry.error} class="error" role="alert">{entry.error}</p>
+          </fieldset>
+
+          <p e:if={state.failure} class="error" role="alert">{state.failure}</p>
+
+          <div class="fv-foot row">
+            <span class="hint">{preview ? "Preview: nothing you enter is saved." : "Never submit passwords through this form."}</span>
+            <button type="submit" class="is-primary is-lg fv-submit" disabled={state.status === "sending" || fields.length === 0}>
+              {state.status === "sending" ? "Sending…" : "Submit"}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</FormView>

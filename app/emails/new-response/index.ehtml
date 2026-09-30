@@ -1,0 +1,41 @@
+import "./style.css";
+
+export interface EmailAnswer {
+  id: string;
+  label: string;
+  value: string;
+}
+
+/**
+ * Sent to a form's owner for each new response, unless they turned it off.
+ *
+ * @email
+ */
+<html (
+  ownerName: string,
+  formTitle: string,
+  formId: string,
+  total: number,
+  answers: EmailAnswer[],
+)>
+  <body class="email new-response">
+    <div class="email-wrap">
+      <p class="eyebrow">New response · #{total}</p>
+      <h1>{formTitle}</h1>
+      <p>Hi {ownerName}, someone just filled in your form.</p>
+
+      <table class="answers" role="presentation">
+        <tr e:for={a of answers}>
+          <th>{a.label}</th>
+          <td>{a.value || "No answer"}</td>
+        </tr>
+      </table>
+
+      <p><a class="cta" href={`/forms/${formId}/responses`}>See all {total} responses</a></p>
+
+      <div class="email-footer">
+        <p>Sent by fieldloft. Turn these off in the form's settings.</p>
+      </div>
+    </div>
+  </body>
+</html>
