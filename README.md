@@ -23,6 +23,29 @@ app.
 elements create fieldloft -scaffold=elementscode/demo-fieldloft
 ```
 
+## How it's built
+
+Fieldloft needed a drag-to-reorder form builder, public forms with file uploads, a responses table and summary charts that fill in as people answer, CSV export, and owner emails. Each of those is a part of Elements, so the agent spent its 21 minutes on the forms themselves.
+
+### What Elements gave the app
+
+- **Live responses and charts.** `forms`, `fields` and `responses` are LiveTables in `app/shared/services/forms.ts`. `submitResponse` inserts each answer set through a `responses` view, and the responses page draws its table and its choice and rating bars from that live view, so both update as each response arrives.
+- **A builder on a live table.** Dragging a field in `app/pages/builder/template.ehtml` gives it a position between its new neighbors through `positionFor` and saves it through the `fields` view. Title, publishing, theme color, thank-you message and the email setting save through the `update` handler of `forms`, which checks the owner.
+- **File uploads as form fields.** `submitResponse` takes each file field's upload as a `File`, stores it beside the response in one transaction, and `app/routes/files.ts` serves it back to the owner. `checkAnswers` runs in the browser for instant feedback and again in the rpc.
+- **Owner email from a job.** When a form's email setting is on, `submitResponse` schedules `SendResponseEmailJob` inside its transaction, and the job sends the `new-response` template.
+- **CSV in one route.** `app/routes/export-csv.ts` serves `/forms/:id/responses.csv` with one column per field, and quotes any cell a spreadsheet would read as a formula.
+- **Data from SQL files.** Two migrations define the schema and seed two accounts, four published forms and 153 responses over the past month, including résumé files on the job application. The project server applied each one as soon as it was saved.
+
+### What the project server gave the agent
+
+The project server runs alongside the agent and answers as soon as a file is saved: it type-checks the templates, TypeScript and SQL, applies migrations and reruns the tests, so every question came back right away and the agent kept building.
+
+### What shipped
+
+The app type-checks with zero errors and all 22 tests pass. Every page was checked on desktop and phone before publishing, and a response submitted from a phone updated the owner's open summary, showed the thank-you page and sent the owner email.
+
+Start in `app/shared/services/forms.ts`.
+
 ## Demo accounts
 
 The seed creates two accounts with two published forms each, and 153
