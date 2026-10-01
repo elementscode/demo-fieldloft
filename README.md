@@ -30,10 +30,15 @@ Fieldloft needed a drag-to-reorder form builder, public forms with file uploads,
 ### What Elements gave the app
 
 - **Live responses and charts.** Forms, fields and responses are LiveTables. Each submission is inserted through the responses table, and the owner's responses page draws its table and its choice and rating charts from it, so both update as answers arrive.
+
 - **A drag-to-reorder builder.** Dragging a field places it between its new neighbors and saves it through the fields LiveTable. Publishing, the theme color, the thank-you message and the email setting save the same way, checked against the form's owner.
+
 - **File uploads.** A public form sends file answers to an `@rpc` function, which checks every answer again on the server and stores the files with the response in one transaction.
+
 - **Owner emails from a job.** When the form's email setting is on, each response schedules a job that emails the owner from a template.
+
 - **CSV export.** One route serves every form's responses as CSV with a column per field.
+
 - **Data from SQL files.** Migrations define the schema and seed two accounts, four published forms and 153 responses over the past month, including résumé files on the job application. The project server applied each one as soon as it was saved.
 
 ### What the project server gave the agent
