@@ -29,12 +29,12 @@ Fieldloft needed a drag-to-reorder form builder, public forms with file uploads,
 
 ### What Elements gave the app
 
-- **Live responses and charts.** `forms`, `fields` and `responses` are LiveTables in `app/shared/services/forms.ts`. `submitResponse` inserts each answer set through a `responses` view, and the responses page draws its table and its choice and rating bars from that live view, so both update as each response arrives.
-- **A builder on a live table.** Dragging a field in `app/pages/builder/template.ehtml` gives it a position between its new neighbors through `positionFor` and saves it through the `fields` view. Title, publishing, theme color, thank-you message and the email setting save through the `update` handler of `forms`, which checks the owner.
-- **File uploads as form fields.** `submitResponse` takes each file field's upload as a `File`, stores it beside the response in one transaction, and `app/routes/files.ts` serves it back to the owner. `checkAnswers` runs in the browser for instant feedback and again in the rpc.
-- **Owner email from a job.** When a form's email setting is on, `submitResponse` schedules `SendResponseEmailJob` inside its transaction, and the job sends the `new-response` template.
-- **CSV in one route.** `app/routes/export-csv.ts` serves `/forms/:id/responses.csv` with one column per field, and quotes any cell a spreadsheet would read as a formula.
-- **Data from SQL files.** Two migrations define the schema and seed two accounts, four published forms and 153 responses over the past month, including résumé files on the job application. The project server applied each one as soon as it was saved.
+- **Live responses and charts.** Forms, fields and responses are LiveTables. Each submission is inserted through the responses table, and the owner's responses page draws its table and its choice and rating charts from it, so both update as answers arrive.
+- **A drag-to-reorder builder.** Dragging a field places it between its new neighbors and saves it through the fields LiveTable. Publishing, the theme color, the thank-you message and the email setting save the same way, checked against the form's owner.
+- **File uploads.** A public form sends file answers to an `@rpc` function, which checks every answer again on the server and stores the files with the response in one transaction.
+- **Owner emails from a job.** When the form's email setting is on, each response schedules a job that emails the owner from a template.
+- **CSV export.** One route serves every form's responses as CSV with a column per field.
+- **Data from SQL files.** Migrations define the schema and seed two accounts, four published forms and 153 responses over the past month, including résumé files on the job application. The project server applied each one as soon as it was saved.
 
 ### What the project server gave the agent
 
@@ -43,8 +43,6 @@ The project server runs alongside the agent and answers as soon as a file is sav
 ### What shipped
 
 The app type-checks with zero errors and all 22 tests pass. Every page works on desktop and phone, and live updates arrive as people answer, such as a response submitted from a phone updating the owner's open summary.
-
-Start in `app/shared/services/forms.ts`.
 
 ## Demo accounts
 
