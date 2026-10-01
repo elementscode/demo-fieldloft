@@ -42,7 +42,7 @@ The project server runs alongside the agent and answers as soon as a file is sav
 
 ### What shipped
 
-The app type-checks with zero errors and all 22 tests pass. Every page was checked on desktop and phone before publishing, and a response submitted from a phone updated the owner's open summary, showed the thank-you page and sent the owner email.
+The app type-checks with zero errors and all 22 tests pass. Every page works on desktop and phone, and live updates arrive as people answer, such as a response submitted from a phone updating the owner's open summary.
 
 Start in `app/shared/services/forms.ts`.
 
