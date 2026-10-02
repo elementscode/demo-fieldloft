@@ -10,9 +10,6 @@ Build forms with nine field types, publish them at a themed public link, and wat
 
 ## Agent specs
 
-What one run of the prompt below took, from an empty Elements project to this
-app.
-
 - **Agent:** Claude Code, Opus 5.5 Medium
 - **Time:** 21 min
 - **Cost:** $7.48 at API rates, September 2026
@@ -65,25 +62,7 @@ Public forms live at `/f/<slug>`, for example `/f/loftwork-feedback`. In
 development, the email for each new response is written to
 `.elements/logs/job.log`.
 
-## The prompt
-
-```text
-Build a form builder named fieldloft.
-
-- Accounts. Build a form with fields: short text, long text, email, number,
-  single choice, multiple choice, date, rating, file upload. Each can be
-  required, with help text.
-- Reorder fields by dragging. Preview the form.
-- Publish at a public url. A theme color and a thank-you message.
-- Responses: a table with one column per field, a summary view with charts
-  for choice and rating fields, and CSV export.
-- An email to the owner for each new response (can be turned off).
-
-Seed two users with four forms (event registration, customer feedback, job
-application, a poll) and responses. Show the seeded logins on the sign-in page.
-
-Responses and summary charts update in real time.
-```
+**Demo:** [Fieldloft](https://elements.dev/demos/01a0f435-685a-7329-902c-9c4ba3cc9e14)
 
 ## License
 
