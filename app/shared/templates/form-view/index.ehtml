@@ -154,75 +154,75 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
         <div class="fv-body stack is-xl">
           <div e:for={entry of state.entries} e:key={(e) => e.id} id={`q-${entry.id}`}>
-          <FormField error={entry.error} reserveError={false} class="fv-question">
-            <FieldLabel required={entry.field.required}>{entry.field.label || "Untitled question"}</FieldLabel>
-            <FieldDescription e:if={entry.field.helpText} class="fv-help">{entry.field.helpText}</FieldDescription>
+            <FormField error={entry.error} reserveError={false} class="fv-question">
+              <FieldLabel required={entry.field.required}>{entry.field.label || "Untitled question"}</FieldLabel>
+              <FieldDescription e:if={entry.field.helpText}>{entry.field.helpText}</FieldDescription>
 
-            <Textarea e:if={entry.field.kind === "long"}
-                      value={entry.value}
-                      invalid={!!entry.error}
-                      oninput={() => onAnswer(entry)}/>
-
-            <RadioGroup e:elseif={entry.field.kind === "single"}
+              <Textarea e:if={entry.field.kind === "long"}
                         value={entry.value}
-                        name={entry.id}
-                        class="fv-choices"
-                        onValueChange={() => onAnswer(entry)}>
-              <Label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
-                <RadioGroupItem value={option}/>
-                {option}
-              </Label>
-            </RadioGroup>
+                        invalid={!!entry.error}
+                        oninput={() => onAnswer(entry)}/>
 
-            <CheckboxGroup e:elseif={entry.field.kind === "multiple"}
-                           value={entry.value}
-                           class="fv-choices"
-                           onValueChange={() => onAnswer(entry)}>
-              <Label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
-                <Checkbox value={option}/>
-                {option}
-              </Label>
-            </CheckboxGroup>
+              <RadioGroup e:elseif={entry.field.kind === "single"}
+                          value={entry.value}
+                          name={entry.id}
+                          class="fv-choices"
+                          onValueChange={() => onAnswer(entry)}>
+                <Label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
+                  <RadioGroupItem value={option}/>
+                  {option}
+                </Label>
+              </RadioGroup>
 
-            <div e:elseif={entry.field.kind === "rating"} class="row" role="radiogroup" aria-label={entry.field.label}>
-              <div class="fv-rating">
-                <button e:for={n of Array.from({ length: RATING_MAX }, (_, i) => i + 1)}
-                        e:key={(n) => n}
-                        type="button"
-                        role="radio"
-                        aria-checked={entry.value === n ? "true" : "false"}
-                        aria-label={`${n} of ${RATING_MAX}`}
-                        class={["fv-rate", Number(entry.value) >= n && "is-on"]}
-                        onclick={() => onRate(entry, n)}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>
-                  </svg>
-                </button>
+              <CheckboxGroup e:elseif={entry.field.kind === "multiple"}
+                             value={entry.value}
+                             class="fv-choices"
+                             onValueChange={() => onAnswer(entry)}>
+                <Label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
+                  <Checkbox value={option}/>
+                  {option}
+                </Label>
+              </CheckboxGroup>
+
+              <div e:elseif={entry.field.kind === "rating"} class="row" role="radiogroup" aria-label={entry.field.label}>
+                <div class="fv-rating">
+                  <button e:for={n of Array.from({ length: RATING_MAX }, (_, i) => i + 1)}
+                          e:key={(n) => n}
+                          type="button"
+                          role="radio"
+                          aria-checked={entry.value === n ? "true" : "false"}
+                          aria-label={`${n} of ${RATING_MAX}`}
+                          class={["fv-rate", Number(entry.value) >= n && "is-on"]}
+                          onclick={() => onRate(entry, n)}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>
+                    </svg>
+                  </button>
+                </div>
+                <span class="fv-rating-label">{RATING_WORDS[Number(entry.value) || 0]}</span>
               </div>
-              <span class="fv-rating-label">{RATING_WORDS[Number(entry.value) || 0]}</span>
-            </div>
 
-            <FileUpload e:elseif={entry.field.kind === "file"}
-                        files={entry.files}
-                        maxFileSize={MAX_FILE_BYTES}
-                        hint="Up to 5 MB"
-                        invalid={!!entry.error}
-                        onFileChange={() => onAnswer(entry)}/>
+              <FileUpload e:elseif={entry.field.kind === "file"}
+                          files={entry.files}
+                          maxFileSize={MAX_FILE_BYTES}
+                          hint="Up to 5 MB"
+                          invalid={!!entry.error}
+                          onFileChange={() => onAnswer(entry)}/>
 
-            <DatePicker e:elseif={entry.field.kind === "date"}
-                        value={entry.value}
-                        block
-                        invalid={!!entry.error}
-                        onValueChange={() => onAnswer(entry)}/>
+              <DatePicker e:elseif={entry.field.kind === "date"}
+                          value={entry.value}
+                          block
+                          invalid={!!entry.error}
+                          onValueChange={() => onAnswer(entry)}/>
 
-            <Input e:else
-                   type={inputType(entry.field)}
-                   value={entry.value}
-                   invalid={!!entry.error}
-                   placeholder={entry.field.kind === "email" ? "name@example.com" : ""}
-                   attrs={{ inputmode: entry.field.kind === "number" ? "decimal" : undefined, autocomplete: entry.field.kind === "email" ? "email" : undefined }}
-                   oninput={() => onAnswer(entry)}/>
-          </FormField>
+              <Input e:else
+                     type={inputType(entry.field)}
+                     value={entry.value}
+                     invalid={!!entry.error}
+                     placeholder={entry.field.kind === "email" ? "name@example.com" : ""}
+                     attrs={{ inputmode: entry.field.kind === "number" ? "decimal" : undefined, autocomplete: entry.field.kind === "email" ? "email" : undefined }}
+                     oninput={() => onAnswer(entry)}/>
+            </FormField>
           </div>
 
           <Alert e:if={state.failure} variant="danger" description={state.failure}>

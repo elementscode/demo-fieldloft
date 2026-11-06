@@ -29,7 +29,7 @@ export interface FormNavInfo {
       <Button e:if={form.published} size="sm" href={`/f/${form.slug}`} attrs={{ target: "_blank", rel: "noopener" }}>Open public form ↗</Button>
     </div>
 
-    <Tabs value={active} class="form-nav-tabs">
+    <Tabs value={active}>
       <TabsList label="Form sections">
         <TabsTrigger value="build" href={`/forms/${form.id}`}>Build</TabsTrigger>
         <TabsTrigger value="preview" href={`/forms/${form.id}/preview`}>Preview</TabsTrigger>
