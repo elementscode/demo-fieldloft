@@ -234,15 +234,13 @@ function onMoveField(e: KanbanMoveEvent, fields: LiveView<Field>) {
                     orientation="vertical"
                     restrictTo="vertical"
                     label="Questions"
-                    class="field-board"
                     onMove={(e) => onMoveField(e, fields)}>
               <KanbanBoard>
                 <KanbanColumn value="fields" label="Questions">
                   <KanbanItem e:for={[index, field] of fields.sort(byPosition).entries()}
                               e:key={([index, field]) => field.id}
                               value={field.id}
-                              label={field.label || `Question ${index + 1}`}
-                              class="field-card">
+                              label={field.label || `Question ${index + 1}`}>
                     <div class="field-grip">
                       <KanbanItemHandle label={`Move question ${index + 1}`}/>
                       <span class="field-number">{index + 1}</span>
@@ -307,7 +305,7 @@ function onMoveField(e: KanbanMoveEvent, fields: LiveView<Field>) {
 
                       <div class="field-foot row">
                         <Label>
-                          <Checkbox checked={field.required} onCheckedChange={() => queueMicrotask(() => saveField(fields, field))}/>
+                          <Checkbox checked={field.required} onCheckedChange={(required) => saveField(fields, { ...field, required })}/>
                           Required
                         </Label>
                         <Button variant="ghost" size="sm" onclick={() => onDeleteField(fields, field)}>Delete</Button>
@@ -325,7 +323,7 @@ function onMoveField(e: KanbanMoveEvent, fields: LiveView<Field>) {
           </div>
 
           <aside class="builder-side stack is-md">
-            <Card size="sm" title="Add a question" level={2} class="side-card">
+            <Card size="sm" title="Add a question" level={2}>
               <CardContent>
                 <div class="kind-grid">
                   <Button e:for={k of FIELD_KINDS}
@@ -339,7 +337,7 @@ function onMoveField(e: KanbanMoveEvent, fields: LiveView<Field>) {
               </CardContent>
             </Card>
 
-            <Card size="sm" title="Sharing" level={2} class="side-card">
+            <Card size="sm" title="Sharing" level={2}>
               <CardAction slot="action">
                 <Badge e:if={form.published} variant="success" dot>Accepting responses</Badge>
                 <Badge e:else variant="secondary">Not published</Badge>
@@ -349,7 +347,7 @@ function onMoveField(e: KanbanMoveEvent, fields: LiveView<Field>) {
                 <div e:if={form.published} class="stack is-sm">
                   <div class="share-link row">
                     <input readonly aria-label="Public link" value={`${appUrl}/f/${form.slug}`} onfocus={(e) => (e.target as HTMLInputElement).select()}>
-                    <Button size="sm" class="share-copy" onclick={() => onCopyLink(state, `${appUrl}/f/${form.slug}`)}>{state.copied ? "Copied" : "Copy"}</Button>
+                    <Button size="sm" onclick={() => onCopyLink(state, `${appUrl}/f/${form.slug}`)}>{state.copied ? "Copied" : "Copy"}</Button>
                   </div>
                   <Button size="sm" block onclick={() => onTogglePublished(forms, form)}>Stop accepting responses</Button>
                 </div>
@@ -361,7 +359,7 @@ function onMoveField(e: KanbanMoveEvent, fields: LiveView<Field>) {
               </CardContent>
             </Card>
 
-            <Card size="sm" title="Look and follow-up" level={2} class="side-card">
+            <Card size="sm" title="Look and follow-up" level={2}>
               <CardContent class="stack is-md">
                 <div class="field">
                   <label>Theme color</label>
@@ -383,7 +381,7 @@ function onMoveField(e: KanbanMoveEvent, fields: LiveView<Field>) {
                 </FormField>
 
                 <Label class="check-row">
-                  <Checkbox checked={form.notifyOwner} onCheckedChange={() => queueMicrotask(() => saveForm(forms, form))}/>
+                  <Checkbox checked={form.notifyOwner} onCheckedChange={(notifyOwner) => saveForm(forms, { ...form, notifyOwner })}/>
                   <span>Email me for each new response</span>
                 </Label>
               </CardContent>
