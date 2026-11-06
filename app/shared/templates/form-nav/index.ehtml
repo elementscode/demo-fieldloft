@@ -1,4 +1,7 @@
 import "./style.css";
+import { Badge } from "@elements/ui/badge";
+import { Button } from "@elements/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@elements/ui/tabs";
 
 export type FormTab = "build" | "preview" | "responses";
 
@@ -18,22 +21,22 @@ export interface FormNavInfo {
         <div class="form-nav-heading row is-sm">
           <span class="form-nav-swatch" style={{ "--swatch": form.themeColor }} aria-hidden="true"></span>
           <h1 class="form-nav-title">{form.title}</h1>
-          <span e:if={form.published} class="pill is-success"><span class="pill-dot"></span>Live</span>
-          <span e:else class="pill">Draft</span>
+          <Badge e:if={form.published} variant="success" dot>Live</Badge>
+          <Badge e:else variant="secondary">Draft</Badge>
         </div>
       </div>
 
-      <a e:if={form.published} class="button is-sm" href={`/f/${form.slug}`} target="_blank" rel="noopener">Open public form ↗</a>
+      <Button e:if={form.published} size="sm" href={`/f/${form.slug}`} attrs={{ target: "_blank", rel: "noopener" }}>Open public form ↗</Button>
     </div>
 
-    <div class="tabs">
-      <div class="tab-list">
-        <a class={["tab", active === "build" && "is-active"]} href={`/forms/${form.id}`}>Build</a>
-        <a class={["tab", active === "preview" && "is-active"]} href={`/forms/${form.id}/preview`}>Preview</a>
-        <a class={["tab", active === "responses" && "is-active"]} href={`/forms/${form.id}/responses`}>
-          Responses<span e:if={responseCount >= 0} class="form-nav-count">{responseCount}</span>
-        </a>
-      </div>
-    </div>
+    <Tabs value={active} class="form-nav-tabs">
+      <TabsList label="Form sections">
+        <TabsTrigger value="build" href={`/forms/${form.id}`}>Build</TabsTrigger>
+        <TabsTrigger value="preview" href={`/forms/${form.id}/preview`}>Preview</TabsTrigger>
+        <TabsTrigger value="responses" href={`/forms/${form.id}/responses`}>
+          Responses<Badge e:if={responseCount >= 0} variant="secondary" class="form-nav-count">{responseCount}</Badge>
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
   </nav>
 </FormNav>

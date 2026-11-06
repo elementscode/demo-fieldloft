@@ -20,18 +20,6 @@
   color: var(--ink-soft);
 }
 
-.shell-avatar {
-  display: inline-grid;
-  place-items: center;
-  width: var(--space-8);
-  height: var(--space-8);
-  border-radius: var(--radius-full);
-  background: var(--accent-soft);
-  color: var(--accent-deep);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-}
-
 .shell-main {
   padding-block: var(--space-8) var(--space-16);
 }
