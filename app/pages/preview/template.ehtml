@@ -1,6 +1,7 @@
 import "./style.css";
 import { LiveView } from "@elements/app";
 import { Field, Form, byPosition } from "#app/shared/services/forms";
+import { Button } from "@elements/ui/button";
 import { AppShell } from "#app/shared/templates/app-shell";
 import { FormNav } from "#app/shared/templates/form-nav";
 import { FormView } from "#app/shared/templates/form-view";
@@ -23,7 +24,7 @@ import favicon from "#app/shared/assets/favicons/favicon.svg";
 
         <div class="preview-note row">
           <p class="hint">This is exactly what respondents see. Try it out: answers here are checked but never saved.</p>
-          <a class="button is-sm" href={`/forms/${form.id}`}>Back to editing</a>
+          <Button size="sm" href={`/forms/${form.id}`}>Back to editing</Button>
         </div>
 
         <div class="preview-stage" style={{ "--stage-color": form.themeColor }}>
