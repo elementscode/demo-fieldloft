@@ -3,7 +3,7 @@
   --accent-deep: color-mix(in oklch, var(--fv-color) 80%, black);
   --accent-soft: color-mix(in oklch, var(--fv-color) 10%, var(--bg));
   --accent-edge: color-mix(in oklch, var(--fv-color) 35%, var(--bg));
-  --accent-ink: #ffffff;
+  --accent-ink: var(--neutral-50);
   --focus: var(--fv-color);
   --input-border-focus: var(--fv-color);
 
@@ -52,42 +52,9 @@
   padding: var(--space-6) var(--space-8) var(--space-8);
 }
 
-.fv-question {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-.fv-question legend,
-.fv-label {
-  display: block;
-  padding: 0;
-  margin-bottom: var(--space-1);
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
-  color: var(--ink);
-}
-
 .fv-star {
   margin-inline-start: var(--space-1);
   color: var(--danger);
-}
-
-.fv-help {
-  margin: 0 0 var(--space-2-5);
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-}
-
-.fv-question .error {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-sm);
-}
-
-.fv-choices {
-  display: grid;
-  gap: var(--space-2);
 }
 
 .fv-choice {
@@ -153,53 +120,6 @@
   margin-inline-start: var(--space-2);
   font-size: var(--text-sm);
   color: var(--ink-soft);
-}
-
-.fv-file {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px dashed var(--rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--bg-soft);
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-  cursor: pointer;
-}
-
-.fv-file:hover,
-.fv-file:focus-within {
-  border-color: var(--accent);
-}
-
-.fv-file.has-file {
-  border-style: solid;
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--ink);
-}
-
-.fv-file input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.fv-file-icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--space-9);
-  height: var(--space-9);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  color: var(--accent);
-  box-shadow: var(--shadow-xs);
 }
 
 .fv-foot {
@@ -278,4 +198,16 @@
     flex-direction: column-reverse;
     align-items: stretch;
   }
+}
+
+.fv-question .field-label {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+.fv-choices.radio-group,
+.fv-choices.checkbox-group {
+  display: grid;
+  gap: var(--space-2);
 }

@@ -1,5 +1,16 @@
 import "./style.css";
 import { File, ValidationError } from "@elements/app";
+import { Alert } from "@elements/ui/alert";
+import { Button } from "@elements/ui/button";
+import { Checkbox, CheckboxGroup } from "@elements/ui/checkbox";
+import { DatePicker } from "@elements/ui/date-picker";
+import { Field as FormField, FieldLabel, FieldDescription } from "@elements/ui/field";
+import { FileUpload } from "@elements/ui/file-upload";
+import { Icon } from "@elements/ui/icon";
+import { Input } from "@elements/ui/input";
+import { Label } from "@elements/ui/label";
+import { RadioGroup, RadioGroupItem } from "@elements/ui/radio-group";
+import { Textarea } from "@elements/ui/textarea";
 import { Field, RATING_MAX, checkAnswers, submitResponse } from "#app/shared/services/forms";
 
 export interface PublicForm {
@@ -14,7 +25,7 @@ interface Entry {
   id: string;
   field: Field;
   value: any;
-  file: File | undefined;
+  files: File[];
   error: string;
 }
 
@@ -31,7 +42,7 @@ function emptyEntries(fields: Field[]): Entry[] {
     id: field.id,
     field,
     value: field.kind === "multiple" ? [] : "",
-    file: undefined,
+    files: [],
     error: "",
   }));
 }
@@ -48,16 +59,13 @@ function showErrors(state: FillState, errors: Record<string, string>) {
   }
 }
 
-function inputType(field: Field): "email" | "number" | "date" | "text" {
+function inputType(field: Field): "email" | "number" | "text" {
   switch (field.kind) {
     case "email":
       return "email";
 
     case "number":
       return "number";
-
-    case "date":
-      return "date";
 
     default:
       return "text";
@@ -66,7 +74,7 @@ function inputType(field: Field): "email" | "number" | "date" | "text" {
 
 function onSubmit(form: PublicForm, fields: Field[], preview: boolean, state: FillState) {
   let answers = Object.fromEntries(state.entries.map((e) => [e.id, e.value]));
-  let files = Object.fromEntries(state.entries.map((e) => [e.id, e.file]));
+  let files = Object.fromEntries(state.entries.map((e) => [e.id, e.files[0]]));
   let { errors } = checkAnswers(fields, answers, files);
 
   state.failure = "";
@@ -112,9 +120,7 @@ function onAgain(fields: Field[], state: FillState) {
   state.status = "idle";
 }
 
-function fileSize(bytes: number): string {
-  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 <FormView (
   form: PublicForm,
@@ -135,7 +141,7 @@ function fileSize(bytes: number): string {
           <p>{form.thankYouMessage}</p>
         </div>
         <div>
-          <button type="button" class="is-ghost" onclick={() => onAgain(fields, state)}>{preview ? "Back to the form" : "Submit another response"}</button>
+          <Button variant="ghost" onclick={() => onAgain(fields, state)}>{preview ? "Back to the form" : "Submit another response"}</Button>
         </div>
       </div>
 
@@ -147,33 +153,36 @@ function fileSize(bytes: number): string {
         </header>
 
         <div class="fv-body stack is-xl">
-          <fieldset e:for={entry of state.entries} id={`q-${entry.id}`} class="fv-question">
-            <legend>
-              {entry.field.label || "Untitled question"}
-              <span e:if={entry.field.required} class="fv-star" aria-label="required">*</span>
-            </legend>
-            <p e:if={entry.field.helpText} class="fv-help">{entry.field.helpText}</p>
+          <div e:for={entry of state.entries} e:key={(e) => e.id} id={`q-${entry.id}`}>
+          <FormField error={entry.error} reserveError={false} class="fv-question">
+            <FieldLabel required={entry.field.required}>{entry.field.label || "Untitled question"}</FieldLabel>
+            <FieldDescription e:if={entry.field.helpText} class="fv-help">{entry.field.helpText}</FieldDescription>
 
-            <div e:if={entry.field.kind === "long"}>
-              <textarea aria-label={entry.field.label}
-                        class={[entry.error && "is-error"]}
+            <Textarea e:if={entry.field.kind === "long"}
+                      value={entry.value}
+                      invalid={!!entry.error}
+                      oninput={() => onAnswer(entry)}/>
+
+            <RadioGroup e:elseif={entry.field.kind === "single"}
                         value={entry.value}
-                        oninput={() => onAnswer(entry)}/>
-            </div>
-
-            <div e:elseif={entry.field.kind === "single"} class="fv-choices" role="radiogroup" aria-label={entry.field.label}>
-              <label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
-                <input type="radio" name={entry.id} group={entry.value} value={option} onchange={() => onAnswer(entry)}>
+                        name={entry.id}
+                        class="fv-choices"
+                        onValueChange={() => onAnswer(entry)}>
+              <Label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
+                <RadioGroupItem value={option}/>
                 {option}
-              </label>
-            </div>
+              </Label>
+            </RadioGroup>
 
-            <div e:elseif={entry.field.kind === "multiple"} class="fv-choices">
-              <label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
-                <input type="checkbox" group={entry.value} value={option} onchange={() => onAnswer(entry)}>
+            <CheckboxGroup e:elseif={entry.field.kind === "multiple"}
+                           value={entry.value}
+                           class="fv-choices"
+                           onValueChange={() => onAnswer(entry)}>
+              <Label e:for={option of entry.field.options} e:key={(o) => o} class="fv-choice">
+                <Checkbox value={option}/>
                 {option}
-              </label>
-            </div>
+              </Label>
+            </CheckboxGroup>
 
             <div e:elseif={entry.field.kind === "rating"} class="row" role="radiogroup" aria-label={entry.field.label}>
               <div class="fv-rating">
@@ -193,39 +202,41 @@ function fileSize(bytes: number): string {
               <span class="fv-rating-label">{RATING_WORDS[Number(entry.value) || 0]}</span>
             </div>
 
-            <label e:elseif={entry.field.kind === "file"} class={["fv-file", entry.file && "has-file"]}>
-              <span class="fv-file-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 16V4m0 0l-5 5m5-5l5 5M4 20h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </span>
-              <span e:if={entry.file}>
-                <strong>{entry.file?.name}</strong><br>
-                {fileSize(entry.file?.size ?? 0)} · click to replace
-              </span>
-              <span e:else>Choose a file, or drop it here<br>Up to 5 MB</span>
-              <input type="file" aria-label={entry.field.label} value={entry.file} onchange={() => onAnswer(entry)}>
-            </label>
+            <FileUpload e:elseif={entry.field.kind === "file"}
+                        files={entry.files}
+                        maxFileSize={MAX_FILE_BYTES}
+                        hint="Up to 5 MB"
+                        invalid={!!entry.error}
+                        onFileChange={() => onAnswer(entry)}/>
 
-            <div e:else>
-              <input type={inputType(entry.field)}
-                     aria-label={entry.field.label}
-                     class={[entry.error && "is-error"]}
-                     inputmode={entry.field.kind === "number" ? "decimal" : undefined}
-                     autocomplete={entry.field.kind === "email" ? "email" : undefined}
-                     placeholder={entry.field.kind === "email" ? "name@example.com" : ""}
-                     value={entry.value}
-                     oninput={() => onAnswer(entry)}>
-            </div>
+            <DatePicker e:elseif={entry.field.kind === "date"}
+                        value={entry.value}
+                        block
+                        invalid={!!entry.error}
+                        onValueChange={() => onAnswer(entry)}/>
 
-            <p e:if={entry.error} class="error" role="alert">{entry.error}</p>
-          </fieldset>
+            <Input e:else
+                   type={inputType(entry.field)}
+                   value={entry.value}
+                   invalid={!!entry.error}
+                   placeholder={entry.field.kind === "email" ? "name@example.com" : ""}
+                   attrs={{ inputmode: entry.field.kind === "number" ? "decimal" : undefined, autocomplete: entry.field.kind === "email" ? "email" : undefined }}
+                   oninput={() => onAnswer(entry)}/>
+          </FormField>
+          </div>
 
-          <p e:if={state.failure} class="error" role="alert">{state.failure}</p>
+          <Alert e:if={state.failure} variant="danger" description={state.failure}>
+            <Icon name="alert-circle"/>
+          </Alert>
 
           <div class="fv-foot row">
             <span class="hint">{preview ? "Preview: nothing you enter is saved." : "Never submit passwords through this form."}</span>
-            <button type="submit" class="is-primary is-lg fv-submit" disabled={state.status === "sending" || fields.length === 0}>
-              {state.status === "sending" ? "Sending…" : "Submit"}
-            </button>
+            <Button type="submit"
+                    variant="primary"
+                    size="lg"
+                    class="fv-submit"
+                    loading={state.status === "sending"}
+                    disabled={fields.length === 0}>Submit</Button>
           </div>
         </div>
       </form>
