@@ -9,22 +9,41 @@ import {
   answerOf,
   formatAnswer,
 } from "#app/shared/services/forms";
+import { AlertDialog, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@elements/ui/alert-dialog";
+import { Badge } from "@elements/ui/badge";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent } from "@elements/ui/card";
+import type { ChartConfig } from "@elements/ui/chart";
+import { BarChart } from "@elements/ui/chart-bar";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@elements/ui/empty";
+import { Table, TableHead, TableCell } from "@elements/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@elements/ui/tabs";
 import { AppShell } from "#app/shared/templates/app-shell";
 import { FormNav, FormNavInfo } from "#app/shared/templates/form-nav";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 
-interface Bar {
+type Bar = {
   id: string;
   label: string;
   count: number;
   share: number;
   top: boolean;
-}
+};
 
 interface Ui {
-  view: "summary" | "table";
+  view: string;
   loadedAt: number;
+  deleting: Submission | null;
+  confirming: boolean;
 }
+
+const BAR_CONFIG: ChartConfig = {
+  count: { label: "Responses", color: "var(--bar)" },
+};
+
+const RATING_CONFIG: ChartConfig = {
+  count: { label: "Ratings", color: "var(--bar)" },
+};
 
 function newestFirst(rows: LiveView<Submission>): Submission[] {
   return rows.sort((a, b) => +b.createdAt - +a.createdAt);
@@ -152,35 +171,43 @@ function fileOf(value: Answer | undefined): FileAnswer | undefined {
   return value && typeof value === "object" && !Array.isArray(value) ? value : undefined;
 }
 
-function onDelete(rows: LiveView<Submission>, row: Submission) {
-  if (confirm("Delete this response? This cannot be undone.")) {
-    rows.delete(row);
-  }
+function onDelete(ui: Ui, row: Submission) {
+  ui.deleting = row;
+  ui.confirming = true;
 }
 
-<BarList (bars: Bar[], unit: string)>
-  <ul class="bars">
-    <li e:for={bar of bars} class={["bar-row", bar.top && "is-top"]}>
-      <span class="bar-name" title={bar.label}>{bar.label}</span>
-      <div class="bar-track" aria-hidden="true">
-        <div class="bar-fill" style={{ width: `${bar.share * 100}%` }}></div>
-      </div>
-      <span class="bar-value"><strong>{bar.count}</strong> · {pct(bar.share)}</span>
-      <span class="bar-tip" role="tooltip" style={{ "--tip-x": `calc(34% + ${Math.max(bar.share * 50, 6)}%)` }}>
-        {bar.label}: {bar.count} {bar.count === 1 ? unit : `${unit}s`} ({pct(bar.share)})
-      </span>
-    </li>
-  </ul>
+function onConfirmDelete(rows: LiveView<Submission>, ui: Ui) {
+  if (ui.deleting) {
+    rows.delete(ui.deleting);
+  }
+
+  ui.deleting = null;
+}
+
+<BarList (bars: Bar[], unit: string, config: ChartConfig, label: string)>
+  <div class="q-chart-box" style={{ height: `${bars.length * 2.5 + 0.5}rem` }}>
+  <BarChart data={bars}
+            {config}
+            {label}
+            x="label"
+            series={["count"]}
+            orientation="horizontal"
+            class="q-chart"
+            grid={false}
+            barCategoryGap="22%"
+            categoryAxis={{ tickLine: false, axisLine: false }}
+            labels={{ position: "right", formatter: (value, row) => `${value} · ${pct(row.share as number)}` }}
+            tooltip={{ hideIndicator: true, formatter: (value, key, row) => `${value} ${value === 1 ? unit : `${unit}s`} (${pct(row.share as number)})` }}
+            />
+  </div>
 </BarList>
 
 <QuestionSummary (field: Field, rows: LiveView<Submission>)>
-  <article class={["q-card stack is-md", (field.kind === "long" || field.kind === "multiple") && "is-wide"]}>
-    <div class="stack is-xs">
-      <h3>{field.label}</h3>
-      <span class="q-meta">{answered(rows, field).length} of {rows.length} answered{field.kind === "multiple" ? " · pick any, so shares can add up past 100%" : ""}</span>
-    </div>
-
-    <BarList e:if={field.kind === "single" || field.kind === "multiple"} bars={choiceBars(rows, field)} unit="response"/>
+  <Card title={field.label}
+        description={`${answered(rows, field).length} of ${rows.length} answered${field.kind === "multiple" ? " · pick any, so shares can add up past 100%" : ""}`}
+        class={["q-card", (field.kind === "long" || field.kind === "multiple") && "is-wide"].filter(Boolean).join(" ")}>
+   <CardContent class="stack is-md">
+    <BarList e:if={field.kind === "single" || field.kind === "multiple"} bars={choiceBars(rows, field)} unit="response" config={BAR_CONFIG} label={field.label}/>
 
     <div e:elseif={field.kind === "rating"} class="stack is-md">
       <div class="rating-head row">
@@ -192,7 +219,7 @@ function onDelete(rows: LiveView<Submission>, row: Submission) {
         </span>
         <span class="q-meta">average of {RATING_MAX}</span>
       </div>
-      <BarList bars={ratingBars(rows, field)} unit="rating"/>
+      <BarList bars={ratingBars(rows, field)} unit="rating" config={RATING_CONFIG} label={field.label}/>
     </div>
 
     <div e:elseif={field.kind === "number"} class="stat-row">
@@ -208,14 +235,15 @@ function onDelete(rows: LiveView<Submission>, row: Submission) {
       </ul>
       <p e:if={recentText(rows, field).length === 0} class="hint">No answers yet.</p>
     </div>
-  </article>
+   </CardContent>
+  </Card>
 </QuestionSummary>
 
 <html lang="en" class="page-responses" (
   form: FormNavInfo,
   fields: Field[],
   responses: LiveView<Submission>,
-  private ui: Ui = { view: "summary" as Ui["view"], loadedAt: Date.now() },
+  private ui: Ui = { view: "summary", loadedAt: Date.now(), deleting: null, confirming: false },
 )>
   <head>
     <title>Responses · {form.title} · fieldloft</title>
@@ -227,64 +255,78 @@ function onDelete(rows: LiveView<Submission>, row: Submission) {
       <div class="page-shell is-wide stack is-lg responses-theme" style={{ "--form-color": form.themeColor }}>
         <FormNav {form} active="responses" responseCount={responses.length}/>
 
-        <div class="responses-bar row">
-          <div class="view-switch" role="tablist" aria-label="View">
-            <button role="tab" aria-selected={ui.view === "summary" ? "true" : "false"} class={[ui.view === "summary" && "is-active"]} onclick={() => ui.view = "summary"}>Summary</button>
-            <button role="tab" aria-selected={ui.view === "table" ? "true" : "false"} class={[ui.view === "table" && "is-active"]} onclick={() => ui.view = "table"}>Table</button>
+        <Tabs value={ui.view} variant="segmented" class="view-tabs">
+          <TabsList label="View">
+            <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="table">Table</TabsTrigger>
+          </TabsList>
+
+          <div class="responses-actions cluster is-sm">
+            <Badge variant="success" dot class="live-pill" attrs={{ title: "New responses appear here as they arrive" }}>Updating live</Badge>
+            <Button size="sm" href={`/forms/${form.id}/responses.csv`} attrs={{ download: true }}>Export CSV</Button>
           </div>
 
-          <div class="cluster is-sm">
-            <span class="pill is-success live-pill" title="New responses appear here as they arrive"><span class="pill-dot"></span>Updating live</span>
-            <a class="button is-sm" href={`/forms/${form.id}/responses.csv`} download>Export CSV</a>
-          </div>
-        </div>
+          <Empty e:if={responses.length === 0} variant="outline">
+            <EmptyHeader>
+              <EmptyTitle>No responses yet</EmptyTitle>
+              <EmptyDescription e:if={form.published}>Share <a href={`/f/${form.slug}`} target="_blank" rel="noopener">the public link</a>. Responses show up here the moment they are submitted.</EmptyDescription>
+              <EmptyDescription e:else>Publish the form from the <a href={`/forms/${form.id}`}>Build tab</a> to start collecting responses.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
 
-        <div e:if={responses.length === 0} class="responses-empty stack is-sm center">
-          <h2>No responses yet</h2>
-          <p e:if={form.published} class="hint">Share <a href={`/f/${form.slug}`} target="_blank" rel="noopener">the public link</a>. Responses show up here the moment they are submitted.</p>
-          <p e:else class="hint">Publish the form from the <a href={`/forms/${form.id}`}>Build tab</a> to start collecting responses.</p>
-        </div>
+          <TabsContent e:if={responses.length > 0} value="summary" class="stack is-lg">
+            <div class="stat-row">
+              <Card size="sm"><CardContent class="stack is-xs"><span class="stat-label">Responses</span><span class="stat-value">{responses.length}</span></CardContent></Card>
+              <Card size="sm"><CardContent class="stack is-xs"><span class="stat-label">Last 7 days</span><span class="stat-value">{lastWeek(responses)}</span></CardContent></Card>
+              <Card size="sm"><CardContent class="stack is-xs"><span class="stat-label">Latest</span><span class="stat-value is-text">{ago(responses)}</span></CardContent></Card>
+            </div>
 
-        <div e:elseif={ui.view === "summary"} class="stack is-lg">
-          <div class="stat-row">
-            <div class="stat stack is-xs"><span class="stat-label">Responses</span><span class="stat-value">{responses.length}</span></div>
-            <div class="stat stack is-xs"><span class="stat-label">Last 7 days</span><span class="stat-value">{lastWeek(responses)}</span></div>
-            <div class="stat stack is-xs"><span class="stat-label">Latest</span><span class="stat-value is-text">{ago(responses)}</span></div>
-          </div>
+            <div class="summary-grid">
+              <QuestionSummary e:for={field of fields} {field} rows={responses}/>
+            </div>
+          </TabsContent>
 
-          <div class="summary-grid">
-            <QuestionSummary e:for={field of fields} {field} rows={responses}/>
-          </div>
-        </div>
+          <TabsContent e:if={responses.length > 0} value="table">
+            <Table label="Responses" class="table-wrap">
+              <table class="responses-table">
+                <thead>
+                  <tr>
+                    <TableHead class="col-time">Submitted</TableHead>
+                    <TableHead e:for={field of fields}>{field.label}</TableHead>
+                    <TableHead class="col-actions"><span class="sr-only">Actions</span></TableHead>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr e:for={row of newestFirst(responses)} e:key={(r) => r.id} class={[+row.createdAt > ui.loadedAt && "is-fresh"]}>
+                    <TableCell class="col-time">{stamp(row.createdAt)}</TableCell>
+                    <TableCell e:for={field of fields}
+                               e:key={(f) => f.id}
+                               class={[!formatAnswer(field, answerOf(row, field)) && "is-empty", field.kind === "long" && "is-long"].filter(Boolean).join(" ")}>
+                      <a e:if={fileOf(answerOf(row, field))} class="file-link" href={`/files/${fileOf(answerOf(row, field))?.id}`}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                        {fileOf(answerOf(row, field))?.name}
+                      </a>
+                      <span e:else>{formatAnswer(field, answerOf(row, field)) || "–"}</span>
+                    </TableCell>
+                    <TableCell class="col-actions">
+                      <Button variant="ghost" size="sm" class="row-delete" label="Delete response" onclick={() => onDelete(ui, row)}>Delete</Button>
+                    </TableCell>
+                  </tr>
+                </tbody>
+              </table>
+            </Table>
+          </TabsContent>
+        </Tabs>
 
-        <div e:else class="table-wrap">
-          <table class="responses-table">
-            <thead>
-              <tr>
-                <th class="col-time" scope="col">Submitted</th>
-                <th e:for={field of fields} scope="col" title={field.label}>{field.label}</th>
-                <th class="col-actions"><span class="sr-only">Actions</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr e:for={row of newestFirst(responses)} class={[+row.createdAt > ui.loadedAt && "is-fresh"]}>
-                <td class="col-time">{stamp(row.createdAt)}</td>
-                <td e:for={field of fields}
-                    e:key={(f) => f.id}
-                    class={[!formatAnswer(field, answerOf(row, field)) && "is-empty", field.kind === "long" && "is-long"]}>
-                  <a e:if={fileOf(answerOf(row, field))} class="file-link" href={`/files/${fileOf(answerOf(row, field))?.id}`}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-                    {fileOf(answerOf(row, field))?.name}
-                  </a>
-                  <span e:else>{formatAnswer(field, answerOf(row, field)) || "–"}</span>
-                </td>
-                <td class="col-actions">
-                  <button class="is-ghost is-sm row-delete" aria-label="Delete response" onclick={() => onDelete(responses, row)}>Delete</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <AlertDialog open={ui.confirming}
+                     size="sm"
+                     title="Delete this response?"
+                     description="This cannot be undone.">
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="danger" onclick={() => onConfirmDelete(responses, ui)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialog>
       </div>
     </AppShell>
   </body>
