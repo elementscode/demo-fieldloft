@@ -1,6 +1,11 @@
 import "./style.css";
 import { redirect } from "@elements/app";
 import { signin, DEMO_ACCOUNTS, DEMO_PASSWORD } from "#app/shared/services/auth";
+import { Alert } from "@elements/ui/alert";
+import { Button } from "@elements/ui/button";
+import { Field } from "@elements/ui/field";
+import { Icon } from "@elements/ui/icon";
+import { Input } from "@elements/ui/input";
 import { AuthAside } from "#app/shared/templates/auth-aside";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 
@@ -47,32 +52,28 @@ function onPickDemo(form: SigninForm, email: string) {
           <form class="stack is-md" onsubmit={() => onSubmit(form)}>
             <h2>Sign in</h2>
 
-            <p e:if={form.error} class="error" role="alert">{form.error}</p>
+            <Alert e:if={form.error} variant="danger" description={form.error}>
+              <Icon name="alert-circle"/>
+            </Alert>
 
-            <div class="field">
-              <label for="email">Email</label>
-              <input id="email"
+            <Field label="Email" reserveError={false}>
+              <Input type="email"
                      name="email"
-                     type="email"
                      value={form.email}
-                     autocomplete="email"
-                     autocapitalize="none"
-                     spellcheck={false}
                      placeholder="you@example.com"
-                     required>
-            </div>
+                     required
+                     attrs={{ autocomplete: "email", autocapitalize: "none", spellcheck: "false" }}/>
+            </Field>
 
-            <div class="field">
-              <label for="password">Password</label>
-              <input id="password"
+            <Field label="Password" reserveError={false}>
+              <Input type="password"
                      name="password"
-                     type="password"
                      value={form.password}
-                     autocomplete="current-password"
-                     required>
-            </div>
+                     required
+                     attrs={{ autocomplete: "current-password" }}/>
+            </Field>
 
-            <button type="submit" class="is-primary is-block" disabled={form.busy}>Sign in</button>
+            <Button type="submit" variant="primary" block loading={form.busy}>Sign in</Button>
 
             <p class="hint">New here? <a href="/signup">Create an account</a></p>
           </form>

@@ -1,6 +1,11 @@
 import "./style.css";
 import { redirect } from "@elements/app";
 import { signup, MIN_PASSWORD } from "#app/shared/services/auth";
+import { Alert } from "@elements/ui/alert";
+import { Button } from "@elements/ui/button";
+import { Field } from "@elements/ui/field";
+import { Icon } from "@elements/ui/icon";
+import { Input } from "@elements/ui/input";
 import { AuthAside } from "#app/shared/templates/auth-aside";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 
@@ -42,39 +47,32 @@ function onSubmit(form: SignupForm) {
           <form class="stack is-md" onsubmit={() => onSubmit(form)}>
             <h2>Create an account</h2>
 
-            <p e:if={form.error} class="error" role="alert">{form.error}</p>
+            <Alert e:if={form.error} variant="danger" description={form.error}>
+              <Icon name="alert-circle"/>
+            </Alert>
 
-            <div class="field">
-              <label for="name">Name</label>
-              <input id="name" name="name" value={form.name} autocomplete="name" required>
-            </div>
+            <Field label="Name" reserveError={false}>
+              <Input name="name" value={form.name} required attrs={{ autocomplete: "name" }}/>
+            </Field>
 
-            <div class="field">
-              <label for="email">Email</label>
-              <input id="email"
+            <Field label="Email" reserveError={false}>
+              <Input type="email"
                      name="email"
-                     type="email"
                      value={form.email}
-                     autocomplete="email"
-                     autocapitalize="none"
-                     spellcheck={false}
                      placeholder="you@example.com"
-                     required>
-            </div>
+                     required
+                     attrs={{ autocomplete: "email", autocapitalize: "none", spellcheck: "false" }}/>
+            </Field>
 
-            <div class="field">
-              <label for="password">Password</label>
-              <input id="password"
+            <Field label="Password" description={`At least ${MIN_PASSWORD} characters.`}>
+              <Input type="password"
                      name="password"
-                     type="password"
                      value={form.password}
-                     autocomplete="new-password"
-                     minlength={MIN_PASSWORD}
-                     required>
-              <p class="hint">At least {MIN_PASSWORD} characters.</p>
-            </div>
+                     required
+                     attrs={{ autocomplete: "new-password", minlength: MIN_PASSWORD }}/>
+            </Field>
 
-            <button type="submit" class="is-primary is-block" disabled={form.busy}>Create account</button>
+            <Button type="submit" variant="primary" block loading={form.busy}>Create account</Button>
 
             <p class="hint">Have an account? <a href="/signin">Sign in</a></p>
           </form>
