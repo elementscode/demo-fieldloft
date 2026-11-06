@@ -185,21 +185,19 @@ function onConfirmDelete(rows: LiveView<Submission>, ui: Ui) {
 }
 
 <BarList (bars: Bar[], unit: string, config: ChartConfig, label: string)>
-  <div class="q-chart-box" style={{ height: `${bars.length * 2.5 + 0.5}rem` }}>
   <BarChart data={bars}
             {config}
             {label}
             x="label"
             series={["count"]}
             orientation="horizontal"
-            class="q-chart"
             grid={false}
             barCategoryGap="22%"
             categoryAxis={{ tickLine: false, axisLine: false }}
             labels={{ position: "right", formatter: (value, row) => `${value} · ${pct(row.share as number)}` }}
             tooltip={{ hideIndicator: true, formatter: (value, key, row) => `${value} ${value === 1 ? unit : `${unit}s`} (${pct(row.share as number)})` }}
+            attrs={{ style: `height: ${bars.length * 2.5 + 0.5}rem` }}
             />
-  </div>
 </BarList>
 
 <QuestionSummary (field: Field, rows: LiveView<Submission>)>
@@ -256,14 +254,16 @@ function onConfirmDelete(rows: LiveView<Submission>, ui: Ui) {
         <FormNav {form} active="responses" responseCount={responses.length}/>
 
         <Tabs value={ui.view} variant="segmented" class="view-tabs">
-          <TabsList label="View">
-            <TabsTrigger value="summary">Summary</TabsTrigger>
-            <TabsTrigger value="table">Table</TabsTrigger>
-          </TabsList>
+          <div class="responses-bar row">
+            <TabsList label="View">
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="table">Table</TabsTrigger>
+            </TabsList>
 
-          <div class="responses-actions cluster is-sm">
-            <Badge variant="success" dot class="live-pill" attrs={{ title: "New responses appear here as they arrive" }}>Updating live</Badge>
-            <Button size="sm" href={`/forms/${form.id}/responses.csv`} attrs={{ download: true }}>Export CSV</Button>
+            <div class="cluster is-sm">
+              <Badge variant="success" dot class="live-pill" attrs={{ title: "New responses appear here as they arrive" }}>Updating live</Badge>
+              <Button size="sm" href={`/forms/${form.id}/responses.csv`} attrs={{ download: true }}>Export CSV</Button>
+            </div>
           </div>
 
           <Empty e:if={responses.length === 0} variant="outline">

@@ -207,22 +207,12 @@
   }
 }
 
-.q-chart-box > .q-chart {
-  width: 100%;
-  height: 100%;
-}
-
 .view-tabs {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-6) var(--space-3);
+  gap: var(--space-6);
 }
 
-.view-tabs > :not(.tab-list, .responses-actions) {
-  grid-column: 1 / -1;
-}
-
-.responses-actions {
-  justify-content: flex-end;
+.responses-bar {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
