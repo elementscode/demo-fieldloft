@@ -13,3 +13,7 @@
   flex: none;
   color: var(--accent);
 }
+
+.brand-line {
+  fill: var(--accent-ink);
+}
